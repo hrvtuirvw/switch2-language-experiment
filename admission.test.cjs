@@ -40,3 +40,12 @@ test('completed previous run permits distinct boot ID, but symlink in runs refus
  const next={...value,bootId:'new-os-boot-654321'};
  await assert.rejects(consumeBoot(runs,next,sha),/symlink in runs/);
 }));
+test('non-English admission binds the target language before boot consumption',async()=>fixture(async({file,admission,runs})=>{
+ await assert.rejects(inspectAdmission(file,'english','fr'),/language target mismatch/);
+ await fs.writeFile(file,JSON.stringify({...admission,language:'fr'}));
+ const value=await inspectAdmission(file,'english','fr');assert.equal(value.language,'fr');
+ await assert.rejects(inspectAdmission(file,'english','de'),/language target mismatch/);
+ await consumeBoot(runs,value,sha);
+ const receipt=JSON.parse(await fs.readFile(path.join(runs,'boot-'+value.bootId+'.json')));
+ assert.equal(receipt.language,'fr');
+}));

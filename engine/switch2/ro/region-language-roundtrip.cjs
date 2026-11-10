@@ -6,13 +6,14 @@ const {connect}=require('../tools/fs-memory.cjs');
 const {read,save,local}=require('./runtime.cjs');
 const {value:region}=require('./region-same-value.cjs');
 const check=(yes,why)=>{if(!yes)throw Error(why)};
-const JA='6a61000000000000', EN_US='656e2d5553000000';
+const {byCode}=require('./language-codes.cjs');
+const JA=byCode('ja').hex, EN_US=byCode('en-US').hex;
 function language(reply,label){
   check(reply && !reply.transport && reply.result===0 && typeof reply.hex==='string' &&
     /^[0-9a-f]+$/i.test(reply.hex) && reply.hex.length>=16,label+': invalid GetLanguageCode');
   const raw=Buffer.from(reply.hex.slice(0,16),'hex');
   const end=raw.indexOf(0);
-  check(end>0 && end<8 && /^[A-Za-z-]+$/.test(raw.subarray(0,end).toString('ascii')),
+  check(end>0 && end<8 && /^[A-Za-z0-9-]+$/.test(raw.subarray(0,end).toString('ascii')),
     label+': non-terminated or invalid language code');
   // The FW getter returned ja\0 followed by nonzero tail on the real unit.
   // LanguageCode is a NUL-terminated 8-byte string; never feed getter tail to a setter.
@@ -21,7 +22,10 @@ function language(reply,label){
 async function main(memory,capture=require('./english-active-home.cjs').main){
   memory ||= await connect();
   const session=memory.info.session, report=memory.reportFile, file=local(session,'-region-language-roundtrip.json');
+  const target=byCode(process.env.NS2_LANGUAGE_TARGET || 'en-US');
+  check(target.code!=='ja','Use restore for Japanese; no target write');
   const proof={kind:'mutable-system-region-and-language-temporary-roundtrip',session,report,
+    targetLanguage:target.code,targetEnum:target.index,
     started:new Date().toISOString(),status:'PREFLIGHT',regionTargetPossiblyAdmitted:false,
     languageTargetPossiblyAdmitted:false,languageRestorePossiblyAdmitted:false,
     regionRestorePossiblyAdmitted:false,languageRestored:false,regionRestored:false};
@@ -76,15 +80,16 @@ async function main(memory,capture=require('./english-active-home.cjs').main){
     check(proof.originalRegion===0 && proof.originalRegionSecond===0 &&
       proof.originalLanguage===JA && proof.originalLanguageSecond===JA,
       'Original mutable settings differ from Japan/ja; no write');
-    // Current FW must map language enum AmericanEnglish(1) to the documented en-US u64.
-    const mapped=await ipc(getter,2,'01000000');
-    proof.englishMappingWire=mapped.hex;
-    proof.englishMapping=language(mapped,'MakeLanguageCode(1)');
+    // Never infer support from a host table: demand exact mapping from this boot's firmware.
+    const targetEnum=Buffer.alloc(4);targetEnum.writeUInt32LE(target.index);
+    const mapped=await ipc(getter,2,targetEnum.toString('hex'));
+    proof.targetMappingWire=mapped.hex;
+    proof.targetMapping=language(mapped,'MakeLanguageCode('+target.index+')');
     const japaneseMapped=await ipc(getter,2,'00000000');
     proof.japaneseMappingWire=japaneseMapped.hex;
     proof.japaneseMapping=language(japaneseMapped,'MakeLanguageCode(0)');await save(file,proof);
     check(proof.japaneseMapping===JA,'ja language code not confirmed by this firmware');
-    check(proof.englishMapping===EN_US,'en-US language code not confirmed by this firmware');
+    check(proof.targetMapping===target.hex,'Target language code not confirmed by this firmware');
     const sys=await memory.request({command:'root-native-sm-service',handle:sm.export.handle,name:'set:sys'});
     proof.setterLookup=sys;await save(file,proof);
     check(!sys.transport && sys.result===0 && sys.moves?.length===1,
@@ -98,14 +103,14 @@ async function main(memory,capture=require('./english-active-home.cjs').main){
     check(proof.intermediateRegion===1 && proof.languageBeforeTarget===JA,
       'Region target did not read 1 with language ja');
     proof.languageTargetPossiblyAdmitted=true;proof.status='LANGUAGE_EN_US_POSSIBLY_ADMITTED';await save(file,proof);
-    proof.languageTargetReply=await ipc(setter,0,EN_US);await save(file,proof);
+    proof.languageTargetReply=await ipc(setter,0,target.hex);await save(file,proof);
     check(!proof.languageTargetReply.transport && proof.languageTargetReply.result===0,
-      'SetLanguageCode(en-US) not acknowledged');
-    proof.intermediateLanguage=await getLanguage('English readback');await save(file,proof);
-    check(proof.intermediateLanguage===EN_US,'English did not read back');
+      'SetLanguageCode('+target.code+') not acknowledged');
+    proof.intermediateLanguage=await getLanguage('target language readback');await save(file,proof);
+    check(proof.intermediateLanguage===target.hex,'Target language did not read back');
     // Owner-directed persistent English experiment. UI observation is separate,
     // after the host releases resources; no HOME input while this FS relay is live.
-    proof.status='ENGLISH_TARGET_READBACK_NO_RESTORE';proof.finished=new Date().toISOString();
+    proof.status='LANGUAGE_TARGET_READBACK_NO_RESTORE';proof.finished=new Date().toISOString();
     proof.uiEnglishVerified=false;proof.restorationIntentionallySkipped=true;
     await save(file,proof);
     return {file,status:proof.status,languageChanged:true,languageRestored:false,

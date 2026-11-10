@@ -3,7 +3,7 @@
 // Fail closed after any uncertain host attempt. Never infer scratch absence from a prefix.
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
 const check=(condition,message)=>{if(!condition)throw Error('Admission: '+message)};
-async function inspectAdmission(file,mode,reader=fs){
+async function inspectAdmission(file,mode,targetLanguage='en-US',reader=fs){
  const absolute=path.resolve(file);
  for(let dir=path.dirname(absolute);;dir=path.dirname(dir)){
   const parent=await reader.lstat(dir);
@@ -15,12 +15,16 @@ async function inspectAdmission(file,mode,reader=fs){
  const bytes=await reader.readFile(absolute);
  check(bytes.length<4096,'admission too large');
  const value=JSON.parse(bytes);
- check(Object.keys(value).sort().join(',')===
-  'bootId,confirmedFreshOsBoot,confirmedNoPendingOwnedScratch,confirmedSavedNs2,confirmedStartUnused,mode',
+ const allowed=['bootId','confirmedFreshOsBoot','confirmedNoPendingOwnedScratch',
+  'confirmedSavedNs2','confirmedStartUnused','mode',...(value.language===undefined?[]:['language'])];
+ check(Object.keys(value).sort().join(',')===allowed.sort().join(','),
   'unexpected admission fields');
  check(typeof value.bootId==='string'&&/^[a-zA-Z0-9_-]{16,64}$/.test(value.bootId),
   'unique bootId must be 16–64 ASCII letters/digits/_/-');
  check(value.mode===mode&&['english','restore'].includes(mode),'mode mismatch');
+ check(value.language===targetLanguage ||
+  (value.language===undefined && (mode==='restore' || targetLanguage==='en-US')),
+  'language target mismatch or missing explicit target');
  for(const key of ['confirmedFreshOsBoot','confirmedNoPendingOwnedScratch','confirmedSavedNs2','confirmedStartUnused'])
   check(value[key]===true,'explicit operator confirmation missing: '+key);
  return {...value,admissionSha256:crypto.createHash('sha256').update(bytes).digest('hex')};
@@ -44,7 +48,8 @@ async function consumeBoot(runs,admission,sourceSha256,reader=fs){
    'unresolved prior host run '+entry.name+'; preserve it and perform exact-owned recovery first');
  }
  const receipt=path.join(runs,'boot-'+admission.bootId+'.json');
- const record={bootId:admission.bootId,mode:admission.mode,admissionSha256:admission.admissionSha256,
+ const record={bootId:admission.bootId,mode:admission.mode,language:admission.language||null,
+  admissionSha256:admission.admissionSha256,
   sourceSha256,attemptPossiblyAdmitted:true,started:new Date().toISOString(),
   warning:'Manual operator claims are not independently verified by this program. Do not retry same boot.'};
  await reader.writeFile(receipt,JSON.stringify(record,null,2)+'\n',{flag:'wx',mode:0o600});

@@ -1,7 +1,8 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const source=fs.readFileSync(path.join(__dirname,'region-language-restore.cjs'),'utf8');
-const JA='6a61000000000000', EN='656e2d5553000000';
+const {byCode,CODES}=require('./language-codes.cjs');
+const JA=byCode('ja').hex, EN=byCode('en-US').hex;
 function fixture({region=1,language=EN,denied=false,languageError=false,regionError=false,rollbackError=false,readbackWrong=false,prior=1}={}) {
  const files=new Map(),calls=[];let currentRegion=region,currentLanguage=language;
  const runtime={local:(s,suffix)=>'/fake/'+s+suffix,
@@ -26,7 +27,7 @@ function fixture({region=1,language=EN,denied=false,languageError=false,regionEr
   if(request.handle===100){
    if(request.id===4){const b=Buffer.alloc(4);b.writeUInt32LE(currentRegion);return {result:0,hex:b.toString('hex')}}
    if(request.id===0)return {result:0,hex:currentLanguage};
-   if(request.id===2)return {result:0,hex:request.hex==='00000000'?JA:EN};
+   if(request.id===2)return {result:0,hex:request.hex==='00000000'?JA:byCode(CODES[Buffer.from(request.hex,'hex').readUInt32LE()]).hex};
   }
   assert.equal(request.handle,101);
   if(request.id===57){if(regionError&&request.hex==='00000000')return {result:0x202};
@@ -46,7 +47,7 @@ test('region1/en-US restores to region0/ja with two acknowledged readbacks',asyn
  assert.equal(f.proof().regionBeforeTarget,1);assert.equal(f.proof().languageAfterTarget,JA);
 });
 test('wrong original or stale same-value proof forbids all writes',async()=>{
- for(const opts of [{region:0},{language:'6672000000000000'},{prior:0}]){
+ for(const opts of [{region:0},{language:'7878000000000000'},{prior:0}]){
   const f=fixture(opts);await assert.rejects(f.run());assert.deepEqual(f.writes(),[]);
  }
 });
@@ -89,4 +90,17 @@ test('region setter error after Japanese readback rolls back region and language
  const f=fixture({regionError:true});await assert.rejects(f.run(),/RegionCode\(0\) not acknowledged/);
  assert.deepEqual(f.writes(),[[0,JA],[57,'00000000'],[0,EN],[57,'01000000']]);
  assert.equal(f.proof().status,'ABORT_RESTORED');
+});
+test('all supported non-Japanese languages restore to ja with original mapping checked',async()=>{
+ for (const code of CODES.slice(1)) {
+  const f=fixture({language:byCode(code).hex});const result=await f.run();
+  assert.equal(result.status,'JAPANESE_TARGET_READBACK_NO_RESTORE');
+  assert.equal(f.proof().originalMapping,byCode(code).hex);
+  assert.deepEqual(f.writes(),[[0,JA],[57,'00000000']]);
+ }
+});
+test('failed French-to-Japanese write rolls back to French, not English',async()=>{
+ const FR=byCode('fr').hex;
+ const f=fixture({language:FR,languageError:true});await assert.rejects(f.run(),/not acknowledged/);
+ assert.deepEqual(f.writes(),[[0,JA],[0,FR]]);
 });

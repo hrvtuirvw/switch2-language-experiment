@@ -1,7 +1,8 @@
 'use strict';
 const test=require('node:test'), assert=require('node:assert/strict'), fs=require('node:fs'), vm=require('node:vm'), path=require('node:path');
 const source=fs.readFileSync(path.join(__dirname,'region-language-roundtrip.cjs'),'utf8');
-const JA='6a61000000000000', EN='656e2d5553000000';
+const {byCode,CODES}=require('./language-codes.cjs');
+const JA=byCode('ja').hex, EN=byCode('en-US').hex;
 function fixture(opt={}){
  const files=new Map(), calls=[], closed=[];let region=opt.region??0, lang=opt.lang??JA;
  const runtime={local:(s,suf)=>'/fake/'+s+suf,
@@ -13,7 +14,7 @@ function fixture(opt={}){
  const req=n=>n==='node:fs/promises'?fakeFs:n==='./runtime.cjs'?runtime:
   n==='../tools/fs-memory.cjs'?{connect:async()=>{throw Error('Unexpected connect')}}:
   n==='./region-same-value.cjs'?{value:r=>{assert.equal(r.result,0);return Buffer.from(r.hex,'hex').readUInt32LE()}}:require(n);
- vm.runInNewContext(source,{module:mod,exports:mod.exports,require:req,Buffer,Error,console,process:{exitCode:0,hrtime:process.hrtime}}, {filename:'region-language-roundtrip.cjs'});
+ vm.runInNewContext(source,{module:mod,exports:mod.exports,require:req,Buffer,Error,console,process:{exitCode:0,hrtime:process.hrtime,env:{NS2_LANGUAGE_TARGET:opt.target||'en-US'}}}, {filename:'region-language-roundtrip.cjs'});
  const memory={info:{session:'S'},reportFile:'/raw',async request(r){
   calls.push({...r});
   if(r.command==='root-native-info')return {services:[{name:'pm:shell',sm:42}]};
@@ -22,7 +23,7 @@ function fixture(opt={}){
    if(r.handle===100){
     if(r.id===4){let b=Buffer.alloc(4);b.writeUInt32LE(region);return {result:0,hex:b.toString('hex')}}
     if(r.id===0)return {result:0,hex:lang};
-    if(r.id===2){assert.ok(['01000000','00000000'].includes(r.hex));return {result:0,hex:r.hex==='01000000'?(opt.mapping??EN):(opt.jaMapping??JA)}}
+    if(r.id===2){return {result:0,hex:r.hex==='00000000'?(opt.jaMapping??JA):(opt.mapping??byCode(CODES[Buffer.from(r.hex,'hex').readUInt32LE()]).hex)}}
    }
    assert.equal(r.handle,101);
    if(r.id===57){
@@ -31,7 +32,7 @@ function fixture(opt={}){
     return {result:0};
    }
    if(r.id===0){
-    if(r.hex===EN){if(opt.languageTargetError)return {result:0x202};lang=opt.languageTargetRead??EN}
+    if(r.hex===byCode(opt.target||'en-US').hex){if(opt.languageTargetError)return {result:0x202};lang=opt.languageTargetRead??r.hex}
     else {assert.equal(r.hex,JA);if(opt.languageRestoreError)return {result:0x202};lang=opt.languageRestoreRead??JA}
     return {result:0};
    }
@@ -50,13 +51,13 @@ function fixture(opt={}){
 const writes=f=>f.calls.filter(x=>x.command==='root-native-ipc'&&x.handle===101).map(x=>[x.id,x.hex]);
 const outcome=f=>f.files.get('/fake/S-region-language-roundtrip.json');
 test('region1 permits English with no immediate settings restoration',async()=>{
- const f=fixture(),r=await f.main(f.memory);assert.equal(r.status,'ENGLISH_TARGET_READBACK_NO_RESTORE');
+ const f=fixture(),r=await f.main(f.memory);assert.equal(r.status,'LANGUAGE_TARGET_READBACK_NO_RESTORE');
  assert.deepEqual(writes(f),[[57,'01000000'],[0,EN]]);
  assert.equal(outcome(f).intermediateLanguage,EN);assert.equal(outcome(f).uiEnglishVerified,false);assert.equal(outcome(f).restorationIntentionallySkipped,true);assert.deepEqual(f.closed,[101,100]);
 });
 test('NUL-terminated ja with nonzero getter tail is semantically ja and restores canonically',async()=>{
  const f=fixture({lang:'6a6100fbf4505e00'}),r=await f.main(f.memory);
- assert.equal(r.status,'ENGLISH_TARGET_READBACK_NO_RESTORE');
+ assert.equal(r.status,'LANGUAGE_TARGET_READBACK_NO_RESTORE');
  assert.equal(outcome(f).originalLanguageWire,'6a6100fbf4505e00');
  assert.equal(outcome(f).originalLanguage,JA);
  assert.deepEqual(writes(f),[[57,'01000000'],[0,EN]]);
@@ -72,4 +73,20 @@ test('region target response error restores region, no language write',async()=>
 test('region target readback mismatch restores region, no language write',async()=>{const f=fixture({regionTargetRead:0});await assert.rejects(f.main(f.memory),/Region target did not/);assert.deepEqual(writes(f),[[57,'01000000'],[57,'00000000']]);assert.equal(outcome(f).status,'ABORT_RESTORED')});
 test('language target rejected still restores both values once',async()=>{const f=fixture({languageTargetError:true});await assert.rejects(f.main(f.memory),/not acknowledged/);assert.deepEqual(writes(f),[[57,'01000000'],[0,EN],[0,JA],[57,'00000000']]);assert.equal(outcome(f).status,'ABORT_RESTORED')});
 test('language readback mismatch still restores both values once',async()=>{const f=fixture({languageTargetRead:JA});await assert.rejects(f.main(f.memory),/did not read back/);assert.deepEqual(writes(f),[[57,'01000000'],[0,EN],[0,JA],[57,'00000000']]);assert.equal(outcome(f).status,'ABORT_RESTORED')});
-test('English success never invokes capture during FS relay',async()=>{const f=fixture({captureError:true});await f.main(f.memory);assert.deepEqual(writes(f),[[57,'01000000'],[0,EN]]);assert.equal(outcome(f).status,'ENGLISH_TARGET_READBACK_NO_RESTORE')});
+test('English success never invokes capture during FS relay',async()=>{const f=fixture({captureError:true});await f.main(f.memory);assert.deepEqual(writes(f),[[57,'01000000'],[0,EN]]);assert.equal(outcome(f).status,'LANGUAGE_TARGET_READBACK_NO_RESTORE')});
+
+test('all 19 non-Japanese codes use the matching enum and firmware reply before write',async()=>{
+ for (const target of CODES.slice(1)) {
+  const f=fixture({target}), result=await f.main(f.memory);
+  assert.equal(result.status,'LANGUAGE_TARGET_READBACK_NO_RESTORE');
+  assert.equal(outcome(f).targetEnum,byCode(target).index);
+  assert.equal(outcome(f).targetMapping,byCode(target).hex);
+  assert.equal(outcome(f).intermediateLanguage,byCode(target).hex);
+  assert.deepEqual(writes(f),[[57,'01000000'],[0,byCode(target).hex]]);
+ }
+});
+test('S2-only enum fallback and unknown target refuse all writes',async()=>{
+ for (const options of [{target:'pl',mapping:JA},{target:'th',mapping:EN},{target:'xx'}]){
+  const f=fixture(options);await assert.rejects(f.main(f.memory));assert.deepEqual(writes(f),[]);
+ }
+});

@@ -27,6 +27,20 @@ all-in-one wrapper. It contains no private console logs or pairing material.
   No setter or FS acquisition was attempted in that probe. This proves the
   mixed mutable state at that later observation, not which reboot caused the
   language reversion or any hardware SKU change.
+- Separately from this all-in-one wrapper, a 2026-11-10 private continuous
+  recording captured a Japanese Kirby Air Riders title, an `en-US` setter
+  readback, and a later English Kirby Air Riders title **within one boot**.
+  It is not an attached public video (it contains private pairing material),
+  nor proof of persistence after reboot. Another observed post-reboot
+  SmileBASIC launch returned to Japanese. These are game-launch observations,
+  not proof for every title/language or this new multi-language wrapper.
+- On 2026-11-10, a separate owner-operated wired run reached the mutable-
+  language stage from region 1 / `ja` and read back region 1 / `en-US`. Its
+  **top-level run failed during FS resource retirement**. Its private report
+  lists 51 source-owned SAVE scratch nodes, **not shown as recovered**.
+  No game/HOME English display, reboot persistence, or complete launcher
+  success is inferred from that getter. Preserve private raw for source-bound
+  cleanup on a separately verified boot; do not publish it.
 - The acquisition/bootstrap/native payload in this tree derive from that
   exact English-settings trial. The executed acquisition probe SHA-256 is
   `428939bd5ed1798533f862c09fac1b863cf38cac85ed9a5bd8026ccc3e284e6e`;
@@ -36,6 +50,10 @@ all-in-one wrapper. It contains no private console logs or pairing material.
   setter order for `1`/`en-US`, and adds a host-tested no-language-write
   branch for `1`/`ja`. These source additions follow the prior console trials;
   the console results above come from their individually identified runs.
+
+The 20-code selection table in [LANGUAGES.md](LANGUAGES.md) comes from public
+settings-service documentation. Except for `en-US`, the added language paths
+have **host-mock coverage only**; no other language's console UI is claimed.
 
 Host tests cover preflight/rollback logic; the console results above are
 from the individually identified trials. The live-proven *private,

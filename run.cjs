@@ -8,6 +8,7 @@ const crypto = require('node:crypto');
 const {spawn} = require('node:child_process');
 const readline = require('node:readline');
 const {pairingCode, listen} = require('./engine/lib/connection.cjs');
+const {byCode} = require('./engine/switch2/ro/language-codes.cjs');
 const {NativeClient} = require('./engine/lib/native.cjs');
 const {qualify} = require('./engine/lib/qualify.cjs');
 const {serve} = require('./engine/lib/bridge.cjs');
@@ -47,17 +48,25 @@ async function prepareDumpDirectory(root = path.join(__dirname, 'dumps')) {
   return {root, cleaned: !!previous};
 }
 
+function isPrivateIPv4(ip) {
+  if (!net.isIPv4(ip)) return false;
+  const [a,b]=ip.split('.').map(Number);
+  return a===10 || (a===172 && b>=16 && b<=31) || (a===192 && b===168);
+}
 function addresses(interfaces = os.networkInterfaces()) {
   return [...new Set(Object.values(interfaces).flat().filter(a =>
     a.family === 'IPv4' && !a.internal && a.netmask !== '255.255.255.255' &&
-    !a.address.startsWith('169.254.')).map(a => a.address))];
+    isPrivateIPv4(a.address)).map(a => a.address))];
 }
 
 async function chooseHost(args) {
   if (args.length > 1 || args.length === 1 && !net.isIPv4(args[0]))
     throw Error('Usage: node run.cjs [computer-IP]');
-  if (args.length) return args[0];
   const choices = addresses();
+  if (args.length) {
+    if (!choices.includes(args[0])) throw Error('Computer IP is not an active local LAN address: ' + args[0]);
+    return args[0];
+  }
   if (choices.length === 1) return choices[0];
   if (!choices.length) throw Error('Connect this computer to the console’s local network.');
   if (!process.stdin.isTTY)
@@ -80,7 +89,7 @@ function connectCommand(host, token) {
 
 async function sourceDigest() {
   const names = ['run.cjs', 'admission.cjs', 'enable-english.cjs',
-    'restore-japanese.cjs', 'bootstrap.bas'];
+    'set-language.cjs', 'restore-japanese.cjs', 'bootstrap.bas'];
   async function walk(folder) {
     for (const entry of await fs.readdir(path.join(__dirname, folder), {withFileTypes: true})) {
       const name = folder + '/' + entry.name;
@@ -97,13 +106,13 @@ async function sourceDigest() {
   return crypto.createHash('sha256').update(JSON.stringify(entries)).digest('hex');
 }
 
-async function startEngine(directory, dumpDirectory = null, held = false, mode = 'english') {
+async function startEngine(directory, dumpDirectory = null, held = false, mode = 'english', target = 'en-US') {
   const log = await fs.open(path.join(directory, 'run.log'), 'wx', 0o600);
   const output = createWriteStream(null, {fd: log.fd, autoClose: false});
   const child = spawn(process.execPath, [path.join(directory, 'switch2/pipeline.cjs'),
     ...(dumpDirectory ? ['--dump-firmware'] : []), ...(held ? ['--hold-rpc'] : [])],
     {cwd: directory, stdio: ['ignore', 'pipe', 'pipe', ...(held ? ['ipc'] : [])], windowsHide: true,
-      env: {...process.env, NS2_LANGUAGE_MODE: mode,
+      env: {...process.env, NS2_LANGUAGE_MODE: mode, NS2_LANGUAGE_TARGET: target,
         ...(dumpDirectory ? {NS2_FIRMWARE_DUMP_DIR: dumpDirectory} : {})}});
   child.stdout.pipe(output, {end: false});
   child.stderr.pipe(output, {end: false});
@@ -176,22 +185,27 @@ function waitForRpcStop(connection, signals = process, engineFinished = null) {
 async function main(args = process.argv.slice(2)) {
   if (args.length === 1 && args[0] === '--help') {
     console.log('Usage: node run.cjs --check-only\n' +
-      '       node run.cjs --mode english|restore --admission admission.json [computer-IP]\n' +
+      '       node run.cjs --mode english --language CODE --admission admission.json [computer-IP]\n' +
+      '       node run.cjs --mode restore --admission admission.json [computer-IP]\n' +
       'Switch 2 only. A checked manual boot admission is required before connection. See README.md.');
     return;
   }
-  let mode = null, admissionPath = null, checkOnly = false;
+  let mode = null, admissionPath = null, languageCode = null, checkOnly = false;
   const positional = [];
   for (let i=0;i<args.length;i++) {
     if (args[i]==='--mode' && mode===null) mode=args[++i];
+    else if (args[i]==='--language' && languageCode===null) languageCode=args[++i];
     else if (args[i]==='--admission' && admissionPath===null) admissionPath=args[++i];
     else if (args[i]==='--check-only' && !checkOnly) checkOnly=true;
     else positional.push(args[i]);
   }
-  if (checkOnly && (positional.length || mode || admissionPath))
+  if (checkOnly && (positional.length || mode || admissionPath || languageCode))
     throw Error('--check-only takes no other arguments');
   if (!checkOnly && (!['english','restore'].includes(mode) || !admissionPath ||
     positional.some(a => a.startsWith('--')))) throw Error('Provide --mode and --admission; see --help');
+  if (mode==='restore' && languageCode !== null) throw Error('Restore does not accept a target language');
+  const target = mode==='english' ? byCode(languageCode || 'en-US') : byCode('ja');
+  if (mode==='english' && target.code==='ja') throw Error('Use restore for Japanese');
   if (process.env.NS2_METADATA_PROBE_4K !== undefined)
     throw Error('The proven 4 KiB metadata factor cannot be overridden.');
   const reviewedSource = await sourceDigest();
@@ -199,7 +213,7 @@ async function main(args = process.argv.slice(2)) {
     console.log('CHECK_ONLY_OK: source digest '+reviewedSource+'; no token/listener/console run. Live cleanup and compatibility NOT verified.');
     return {sourceSha256: reviewedSource, checkedOnly: true};
   }
-  const admission = await inspectAdmission(admissionPath, mode);
+  const admission = await inspectAdmission(admissionPath, mode, target.code);
   const host = await chooseHost(positional);
   const currentBoot = {bootId: admission.bootId, savedNs2Prepared: true,
     receiptStartSent: false, operatorAttested: true, independentlyVerified: false};
@@ -213,7 +227,7 @@ async function main(args = process.argv.slice(2)) {
   const dumpDirectory = null, rpcMode = false, dumpFirmware = false;
   const directory = await fs.mkdtemp(path.join(workspace, 'switch2-'));
   await fs.writeFile(path.join(directory, 'connect.txt'), command + '\n', {mode: 0o600});
-  const result = {platform: 2, sourceSha256: reviewedSource, postcleanup, currentBoot,
+  const result = {platform: 2, sourceSha256: reviewedSource, targetLanguage: target.code, postcleanup, currentBoot,
     started: new Date().toISOString(), verified: false};
   let native, bridge, engine, failure;
   try {
@@ -233,7 +247,7 @@ async function main(args = process.argv.slice(2)) {
       addresses: {...connected.addresses, session: path.basename(directory), target: 'switch2'}});
     for (const name of ['shared', 'switch2'])
       await fs.cp(path.join(__dirname, 'engine', name), path.join(directory, name), {recursive: true});
-    engine = await startEngine(directory, dumpDirectory, rpcMode, mode);
+    engine = await startEngine(directory, dumpDirectory, rpcMode, mode, target.code);
     if (rpcMode) await engine.ready;
     else checkEngine(await engine.finished);
     result.pipeline = JSON.parse(await fs.readFile(path.join(directory, 'switch2/pipeline.json')));
@@ -241,9 +255,10 @@ async function main(args = process.argv.slice(2)) {
       path.basename(directory) + (mode === 'english' ? '-region-language-roundtrip.json' : '-region-language-restore.json'))));
     if (!result.pipeline.verified || !result.pipeline.cleanup?.cleanedUp ||
         result.regionLanguage.status !== (mode === 'english' ?
-          'ENGLISH_TARGET_READBACK_NO_RESTORE' : 'JAPANESE_TARGET_READBACK_NO_RESTORE') ||
+          'LANGUAGE_TARGET_READBACK_NO_RESTORE' : 'JAPANESE_TARGET_READBACK_NO_RESTORE') ||
+        (mode === 'english' && result.regionLanguage.targetLanguage !== target.code) ||
         result.regionLanguage.restorationIntentionallySkipped !== true)
-      throw Error('English target readback or FS cleanup did not verify. Preserve the raw receipts.');
+      throw Error('Target language readback or FS cleanup did not verify. Preserve the raw receipts.');
     result.verified = true;
     if (rpcMode) {
       result.rpc = {mode: 'held', state: 'listening', opened: new Date().toISOString()};
@@ -282,13 +297,13 @@ async function main(args = process.argv.slice(2)) {
     await save(path.join(directory, 'result.json'), result);
   }
   if (failure) throw Error(failure.message + '\nDetails: ' + directory);
-  console.log(mode+' readback and FS cleanup verified; UI still requires independent image.');
+  console.log(target.code+' readback and FS cleanup verified; UI still requires independent image.');
   if (dumpFirmware) console.log('System-program CodeFS dump: ' +
     path.join(dumpDirectory, 'firmware-dump.json'));
   console.log('Restart the console when finished.');
   return result;
 }
 
-module.exports = {main, addresses, chooseHost, connectCommand, sourceDigest, prepareDumpDirectory,
+module.exports = {main, addresses, isPrivateIPv4, chooseHost, connectCommand, sourceDigest, prepareDumpDirectory,
   startEngine, checkEngine, waitForRpcStop};
 if (require.main === module) main().catch(error => {console.error(error.message); process.exitCode = 1;});

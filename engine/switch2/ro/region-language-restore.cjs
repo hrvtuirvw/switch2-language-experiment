@@ -6,13 +6,14 @@ const {connect}=require('../tools/fs-memory.cjs');
 const {read,save,local}=require('./runtime.cjs');
 const {value:region}=require('./region-same-value.cjs');
 const check=(yes,why)=>{if(!yes)throw Error(why)};
-const JA='6a61000000000000', EN_US='656e2d5553000000';
+const {byCode,byHex}=require('./language-codes.cjs');
+const JA=byCode('ja').hex, EN_US=byCode('en-US').hex;
 function language(reply,label){
   check(reply && !reply.transport && reply.result===0 && typeof reply.hex==='string' &&
     /^[0-9a-f]+$/i.test(reply.hex) && reply.hex.length>=16,label+': invalid GetLanguageCode');
   const raw=Buffer.from(reply.hex.slice(0,16),'hex');
   const end=raw.indexOf(0);
-  check(end>0 && end<8 && /^[A-Za-z-]+$/.test(raw.subarray(0,end).toString('ascii')),
+  check(end>0 && end<8 && /^[A-Za-z0-9-]+$/.test(raw.subarray(0,end).toString('ascii')),
     label+': non-terminated or invalid language code');
   // The FW getter returned ja\0 followed by nonzero tail on the real unit.
   // LanguageCode is a NUL-terminated 8-byte string; never feed getter tail to a setter.
@@ -34,11 +35,11 @@ async function main(memory){
     check(!proof.languageRestorePossiblyAdmitted,'English rollback already attempted; no replay');
     proof.languageRestorePossiblyAdmitted=true;proof.status='LANGUAGE_RESTORE_POSSIBLY_ADMITTED';
     proof.languageRestorePhase=phase;await save(file,proof);
-    proof.languageRestoreReply=await ipc(setter,0,EN_US);await save(file,proof);
+    proof.languageRestoreReply=await ipc(setter,0,proof.originalLanguage);await save(file,proof);
     check(!proof.languageRestoreReply.transport && proof.languageRestoreReply.result===0,
-      'SetLanguageCode(en-US) rollback not acknowledged');
+      'SetLanguageCode(original) rollback not acknowledged');
     proof.restoredLanguage=await getLanguage('language restore');
-    proof.languageRestored=proof.restoredLanguage===EN_US;await save(file,proof);
+    proof.languageRestored=proof.restoredLanguage===proof.originalLanguage;await save(file,proof);
     check(proof.languageRestored,'English rollback readback mismatch');
   }
   async function restoreRegion(phase){
@@ -74,20 +75,21 @@ async function main(memory){
     proof.originalLanguageWire=firstLanguageReply.hex;
     proof.originalLanguage=language(firstLanguageReply,'original language');
     proof.originalLanguageSecond=await getLanguage('original language second');
-    check(proof.originalRegion===1 && proof.originalRegionSecond===1 &&
-      [JA,EN_US].includes(proof.originalLanguage) &&
+    const originalEntry=byHex(proof.originalLanguage);
+    check(proof.originalRegion===1 && proof.originalRegionSecond===1 && originalEntry &&
       proof.originalLanguageSecond===proof.originalLanguage,
-      'Original mutable settings differ from stable region1/ja or region1/en-US; no write');
+      'Original mutable settings differ from stable supported region1 language; no write');
+    proof.originalLanguageCode=originalEntry.code;
     proof.mixedStateRecovery=proof.originalLanguage===JA;await save(file,proof);
-    // Current FW must map language enum AmericanEnglish(1) to the documented en-US u64.
-    const mapped=await ipc(getter,2,'01000000');
-    proof.englishMappingWire=mapped.hex;
-    proof.englishMapping=language(mapped,'MakeLanguageCode(1)');
+    const originalEnum=Buffer.alloc(4);originalEnum.writeUInt32LE(originalEntry.index);
+    const mapped=await ipc(getter,2,originalEnum.toString('hex'));
+    proof.originalMappingWire=mapped.hex;
+    proof.originalMapping=language(mapped,'MakeLanguageCode(original)');
     const japaneseMapped=await ipc(getter,2,'00000000');
     proof.japaneseMappingWire=japaneseMapped.hex;
     proof.japaneseMapping=language(japaneseMapped,'MakeLanguageCode(0)');await save(file,proof);
     check(proof.japaneseMapping===JA,'ja language code not confirmed by this firmware');
-    check(proof.englishMapping===EN_US,'en-US language code not confirmed by this firmware');
+    check(proof.originalMapping===proof.originalLanguage,'Original language code not confirmed by this firmware');
     const sys=await memory.request({command:'root-native-sm-service',handle:sm.export.handle,name:'set:sys'});
     proof.setterLookup=sys;await save(file,proof);
     check(!sys.transport && sys.result===0 && sys.moves?.length===1,

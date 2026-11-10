@@ -2,8 +2,10 @@
 
 - [x] Include the complete **exact successful trial's** source tree,
       bootstrap and native payload (not a pristine-upstream substitute).
-- [x] Expose English and Japanese wrappers, document mutable IPC commands,
-      mapping and settings limits, remove owner-local UI helper paths.
+- [x] Expose 19 non-Japanese target codes and the Japanese restore wrapper;
+      require a firmware-matched mapping before target write, bind non-English
+      admission to its code, document mutable IPC limits and remove owner-local
+      IP/UI helper paths. Locale paths other than English are host-mock only.
 - [x] Confirm historical Japan/`ja` restoration in multiple real readbacks;
       match the new reverse stage's Japanese-first setter order.
 - [x] Run the current complete host suite and source-only preflight.
@@ -12,6 +14,9 @@
       Future-run source-only raw-bound planner/cleanup core/adapter are included
       and host-tested; **a live recovery CLI, distinct-boot admission and fresh
       SAVE absence proof for a new run remain unimplemented.**
+- [ ] Recover the latest owner-private exact-owned SAVE scratch 51 nodes
+      on a separately verified boot, commit and prove fresh-clone absence;
+      do not treat its language readback or a previous run's cleanup as proof.
 - [ ] Execute the assembled wrapper and new mixed-state restore stage on a
       console; independently check UI and reboot persistence. Record this run
       separately from host tests and the earlier setting-stage proof.
@@ -20,5 +25,7 @@
 - [x] Include upstream revision attribution in `THIRD-PARTY.md` and the README.
 - [x] Preserve the requested all-in-one source shape; do not replace it with
       an adapter-only or patch-only archive.
+- [ ] Live-verify additional language targets and per-title resources before
+      claiming any non-English language's actual game UI is changed.
 - [ ] Complete assembled launcher and future-run cleanup live acceptance before
       claiming a working general-use release. Preserve separate run receipts.

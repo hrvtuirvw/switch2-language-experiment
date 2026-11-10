@@ -65,7 +65,7 @@ async function main() {
       'Current boot lacks an authorized same-value write; refuse target region change');
     const trial = await script('ro', mode === 'english' ? 'region-language-roundtrip' : 'region-language-restore');
     check(trial?.status === (mode === 'english' ?
-      'ENGLISH_TARGET_READBACK_NO_RESTORE' : 'JAPANESE_TARGET_READBACK_NO_RESTORE') &&
+      'LANGUAGE_TARGET_READBACK_NO_RESTORE' : 'JAPANESE_TARGET_READBACK_NO_RESTORE') &&
       trial.restorationIntentionallySkipped === true,
       'Requested language readback did not verify');
     record.trial = trial; await save(file, record);
