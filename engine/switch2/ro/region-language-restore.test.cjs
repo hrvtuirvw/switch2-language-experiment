@@ -104,18 +104,18 @@ test('failed French-to-Japanese write rolls back to French, not English',async()
  const f=fixture({language:FR,languageError:true});await assert.rejects(f.run(),/not acknowledged/);
  assert.deepEqual(f.writes(),[[0,JA],[0,FR]]);
 });
-test('modern ko index6 is accepted for restore when documented index7 returns nl',async()=>{
+test('modern ko index6 is accepted for restore',async()=>{
  const KO=byCode('ko').hex;
  const f=fixture({language:KO,mappingTable:{6:KO,7:byCode('nl').hex}});
  const result=await f.run();assert.equal(result.status,'JAPANESE_TARGET_READBACK_NO_RESTORE');
  assert.equal(f.proof().selectedOriginalEnum,6);
  assert.deepEqual(f.writes(),[[0,JA],[57,'00000000']]);
 });
-test('unresolved or ambiguous modern ko mapping refuses restore before setter',async()=>{
+test('unresolved or ambiguous legacy ko mapping refuses restore before setter',async()=>{
  const KO=byCode('ko').hex;
- for(const mappingTable of [{7:byCode('nl').hex},
-  {6:KO,7:byCode('nl').hex,8:KO},
-  {6:KO,7:byCode('nl').hex,8:'6161616161616161'}]){
+ for(const mappingTable of [{6:byCode('nl').hex,7:byCode('nl').hex},
+  {6:byCode('nl').hex,7:KO,8:KO},
+  {6:byCode('nl').hex,7:KO,8:'6161616161616161'}]){
   const f=fixture({language:KO,mappingTable});await assert.rejects(f.run());
   assert.deepEqual(f.writes(),[]);
   assert.equal(f.proof().status,'PREFLIGHT_FAILED_NO_WRITE');

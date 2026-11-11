@@ -2,7 +2,11 @@
 
 - [x] Include the complete **exact successful trial's** source tree,
       bootstrap and native payload (not a pristine-upstream substitute).
-- [x] Expose 19 non-Japanese target codes and the Japanese restore wrapper;
+- [x] Decode the SHA-verified reference Switch 2 settings conversion table,
+      separate its legacy compatibility table, and expose 17 unique
+      non-Japanese conversion targets plus the Japanese restore wrapper;
+      exclude legacy-only `zh-CN`/`zh-TW`. Index 7=`nl` is also live observed;
+      index 6=`ko` remains reference-image evidence, not live confirmation.
       require a firmware-matched mapping before target write, bind non-English
       admission to its code, document mutable IPC limits and remove owner-local
       IP/UI helper paths. Add an optional host-only Zenity selection dialog to

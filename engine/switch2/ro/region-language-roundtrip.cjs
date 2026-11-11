@@ -89,8 +89,8 @@ async function main(memory,capture=require('./english-active-home.cjs').main){
     proof.japaneseMappingWire=japaneseMapped.hex;
     proof.japaneseMapping=language(japaneseMapped,'MakeLanguageCode(0)');await save(file,proof);
     check(proof.japaneseMapping===JA,'ja language code not confirmed by this firmware');
-    // The observed FW maps enum 7 to nl, not ko. If the documented index
-    // differs, scan only the bounded base enum 0..17 before opening a setter.
+    // The observed FW maps enum 7 to nl, not the legacy table's ko. If this
+    // build's conversion index differs, scan bounded base 0..17 before setter.
     // The setter payload is the canonical code, never the mismatched reply.
     let matches=proof.targetMapping===target.hex?[target.index]:[];
     if(!matches.length){

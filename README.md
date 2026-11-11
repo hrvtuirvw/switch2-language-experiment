@@ -1,6 +1,6 @@
 # Switch 2 mutable language experiment — all-in-one source prerelease
 
-This experimental all-in-one source tree is based on the **actual console trial** configuration, not a patch on pristine upstream. The console read back region 1 / `en-US` and showed English System Settings; separate runs read back the restored Japanese settings. The integrated launcher adds a mixed-state restore branch and per-boot admission logic. The upstream-derived source is attributed to `pepsipu/ns2jb` commit `95f5525089273c5fce0b95047f3600f8442e96ae`; see [THIRD-PARTY.md](THIRD-PARTY.md) for provenance. Read [EVIDENCE.md](EVIDENCE.md) for individual run results. [LANGUAGES.md](LANGUAGES.md) lists the 20 Switch 2 language codes, host-only coverage, and the target-bound command syntax.
+This experimental all-in-one source tree is based on the **actual console trial** configuration, not a patch on pristine upstream. The console read back region 1 / `en-US` and showed English System Settings; separate runs read back the restored Japanese settings. The integrated launcher adds a mixed-state restore branch and per-boot admission logic. The upstream-derived source is attributed to `pepsipu/ns2jb` commit `95f5525089273c5fce0b95047f3600f8442e96ae`; see [THIRD-PARTY.md](THIRD-PARTY.md) for provenance. Read [EVIDENCE.md](EVIDENCE.md) for individual run results. [LANGUAGES.md](LANGUAGES.md) distinguishes the reference Switch 2 conversion indices (18 unique codes) from the older 20-slot compatibility table, host-only coverage, and target-bound command syntax.
 
 ## What the scripts change
 
@@ -10,13 +10,13 @@ The scripts target **mutable system settings**, not hardware region identity, ca
 |---|---|---|
 | Read LanguageCode | `set`, `0` | 8-byte NUL-terminated language code, canonicalized before writing |
 | Read RegionCode | `set`, `4` | little-endian 32-bit enum |
-| Verify firmware language mapping | `set`, `2` | enum `0` → `ja\0`; check the selected code on this boot. If the documented index differs, scan bounded base indices `0`–`17` read-only and require exactly one match before opening a target setter |
+| Verify firmware language mapping | `set`, `2` | enum `0` → `ja\0`; check this boot's reply against the reference conversion index. On mismatch, scan bounded unique indices `0`–`17` read-only and require exactly one match before opening a setter. Reference slots `18`/`19` repeat `ja`/`en-US`, not extra targets |
 | Set LanguageCode | `set:sys`, `0` | canonical, NUL-terminated 8 bytes from a firmware-checked supported code; rollback uses exact canonical original |
 | Set RegionCode | `set:sys`, `57` | little-endian `00000000` (Japan) or `01000000` (American region) |
 
 `english` / `set-language` (the legacy internal mode name): requires region `0`, language `ja`; checks a same-value region write first; writes region `1`, reads it back, then writes the selected, firmware-matched language code and reads it back. `restore`: requires stable region `1` with a documented language or `ja`, checks a same-value region `1` write first, writes `ja` only if needed, then writes region `0` and reads back region `0`/`ja`. The Japanese-first `en-US` path matches two earlier console round trips; the branch for the observed post-reboot mixed `1`/`ja` state passes host tests. A setter's possible admission is journaled **before** dispatch; ambiguous results are not retried. Failure after a target write attempts one rollback to the original values and reports uncertainty if rollback cannot be verified. Both operations intentionally keep the target after successful readback. Neither claims an English/Japanese HOME screen without separate imagery.
 
-One real Korean preflight reached FS and observed `MakeLanguageCode(7) = nl`, not `ko`. It correctly stopped before the Korean setter; the new bounded fallback (including the reverse path) is host-tested only. A locally analyzed settings image suggests index 6 for `ko`, but it is not proven to be this console's exact image. The release **does not** claim a Korean getter, screen change, or reboot persistence.
+One real Korean preflight reached FS and observed `MakeLanguageCode(7) = nl`, not `ko`. It correctly stopped before the Korean setter. A SHA-verified reference Switch 2 settings NSO has a *conversion* table with index 6=`ko`, 7=`nl`, 16=`pl`, 17=`th`; its separate *compatibility* table has index 7=`ko`, 18=`pl`, 19=`th`. The distributed numeric candidates now follow the conversion table, but the live unit's NSO identity and index 6 have not been independently observed. Same-boot code checks and the host-tested bounded fallback remain mandatory. The release **does not** claim a Korean getter, screen change, or reboot persistence.
 
 ## Where the integration sits
 
@@ -51,7 +51,7 @@ For a general-use release, establish mixed (`1`, `ja`) recovery with rollback an
 
 ### この配布物について
 
-Switch 2の言語コード全20種類（日本語復元1、変更先19。そのうち米語・英国英語以外の変更先17）をホストの選択・ファームウェア応答照合・読戻しまで実装しました。各言語の実機画面まで検証したわけではありません。対応コードと指定方法は [LANGUAGES.md](LANGUAGES.md) を参照。IPは実行PCのLANインターフェースから選び、固定値を配布しません。
+参照Switch 2設定NSOの変換表にある異なる言語コード18種類（日本語復元1、変更先17）をホストの選択・起動中のファームウェア応答照合・読戻しまで実装しました。互換表だけにある旧コード `zh-CN`／`zh-TW` は誤った番号で書かないよう選択肢から除外しました。各言語の実機画面まで検証したわけではありません。対応コードと指定方法は [LANGUAGES.md](LANGUAGES.md) を参照。IPは実行PCのLANインターフェースから選び、固定値を配布しません。
 
 これはSwitch 2の**可変な本体設定の地域コードと言語コード**を調べるための、英語化・日本語復元コードを含む**全部入りソースの実験版**です。英語の説明と同じソースを指します。工場出荷時の地域情報、PRODINFO、シリアル番号、証明書、鍵、アカウントの国、DNS、本体更新を変更するものではありません。国内版のSKU制限解除や任天堂オンライン利用が可能になるとは主張しません。
 
@@ -61,7 +61,7 @@ Switch 2の言語コード全20種類（日本語復元1、変更先19。その�
 
 FS-contextのブリッジ経由で、`set` の `GetLanguageCode`（コマンド0）・`GetRegionCode`（4）と `MakeLanguageCode`（2）を確認し、`set:sys` の `SetLanguageCode`（0）・`SetRegionCode`（57）を使います。英語化は **地域0／`ja` → 地域1／`en-US`**、復元は **地域1／`en-US` または地域1／`ja` → 地域0／`ja`** を意図します。地域1／`en-US` の復元は先に言語を `ja` に戻し、次に地域を0にします。地域1／`ja` では不要な言語書込みを省きます。書込み前に一回限りの試行を記録し、応答が不明な書込みを推測で再送しません。成功判定はゲッターの読戻しであり、HOMEや再起動後の表示の保証ではありません。
 
-韓国語を狙った実機の事前確認では、文書上の番号7に対して本体から `nl` が返り、韓国語の書込み前に安全停止しました。新候補は番号不一致時だけ番号0〜17を読取り、要求コードが一意に見つからなければsetterを開きません。日本語復元も同様に元の言語コードを照合します。手元の設定イメージでは番号6が `ko` ですが、本体と同一のイメージという証明ではありません。**韓国語の書込み・画面表示・再起動後の保持は未確認**です。
+韓国語を狙った実機の事前確認では番号7に対して `nl` が返り、韓国語の書込み前に安全停止しました。SHA照合済みの参照Switch 2設定NSOでは**変換表**が6=`ko`、7=`nl`、16=`pl`、17=`th`、別の**互換表**が7=`ko`、18=`pl`、19=`th`。今回のコード・選択肢は変換表の正しい番号に直しました。ただし実機と参照NSOが同一との証明はないため、その起動の応答照合を続け、番号不一致時は0〜17を読取り一意に決まらなければsetterを開きません。復元も同様。**韓国語の書込み・画面表示・再起動後の保持は未確認**です。
 
 ### 実機で確認した結果
 
@@ -71,6 +71,6 @@ FS-contextのブリッジ経由で、`set` の `GetLanguageCode`（コマンド0
 
 ### 事前確認と安全上の制限
 
-Node.js 22以降で `node run.cjs --check-only` を実行すると、ダイアログを出さずソースを検査するだけで本体に接続せず、STARTも送信しません。`node set-language.cjs --admission admission.json` ならZenityで19言語の変更先を選択し、`--language ko` のように指定するとダイアログを省略できます。日本語への復元は `node restore-japanese.cjs --admission admission.json`、従来の米語固定は `node enable-english.cjs --admission admission.json` です。選択のキャンセル・GUI不足・タイムアウトは起動IDの消費やlistener開始前に停止します。ただし選んだコードとadmission JSONの `language` は一致させる必要があります。ホストテストは `node --test admission.test.cjs host-network.test.cjs language-dialog.test.cjs recovery/recovery.test.cjs $(find engine -name '*.test.cjs' | sort)` です。新しい分岐・起動判定・復旧ロジックのソース検査です。
+Node.js 22以降で `node run.cjs --check-only` を実行すると、ダイアログを出さずソースを検査するだけで本体に接続せず、STARTも送信しません。`node set-language.cjs --admission admission.json` ならZenityで17言語の変更先を選択し、`--language ko` のように指定するとダイアログを省略できます。日本語への復元は `node restore-japanese.cjs --admission admission.json`、従来の米語固定は `node enable-english.cjs --admission admission.json` です。選択のキャンセル・GUI不足・タイムアウトは起動IDの消費やlistener開始前に停止します。ただし選んだコードとadmission JSONの `language` は一致させる必要があります。ホストテストは `node --test admission.test.cjs host-network.test.cjs language-dialog.test.cjs recovery/recovery.test.cjs $(find engine -name '*.test.cjs' | sort)` です。新しい分岐・起動判定・復旧ロジックのソース検査です。
 
 本体操作では完全なOS起動ごとにSTARTは一度だけです。使ったか不明なSTARTや入力を再送しないでください。`admission.json` の自己申告は独立した起動・画面・接続先の証明ではありません。現時点では、新しい実行のSAVE scratchについて `recovery/` に所有rawへ拘束する検査・削除コアはありますが、一般ユーザー向けの実機清掃コマンド、別起動の照合、新しいSAVE cloneでの不存在確認は揃っていません。これは実験用ソースの配布で、他の本体向けのワンクリック操作手順ではありません。失敗時は実行フォルダーを保全し、未知のSAVEファイルを消さず、ログ・接続token・端末固有情報を公開Issueへ貼らないでください。

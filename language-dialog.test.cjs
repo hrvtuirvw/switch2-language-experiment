@@ -7,11 +7,11 @@ const {dialogArgs,chooseLanguage}=require('./language-dialog.cjs');
 const {CODES,byCode}=require('./engine/switch2/ro/language-codes.cjs');
 const {main}=require('./run.cjs');
 
-test('dialog lists all 19 forward targets; ja is restore-only',()=>{
+test('dialog lists all 17 unique forward targets; ja is restore-only',()=>{
  const args=dialogArgs(), rows=args.slice(args.indexOf('--print-column=3')+1);
- assert.equal(rows.length,19*3);
+ assert.equal(rows.length,17*3);
  assert.deepEqual(rows.filter((_,i)=>i%3===2),CODES.filter(code=>code!=='ja'));
- assert.deepEqual(rows.filter((_,i)=>i%3===0),['TRUE',...Array(18).fill('FALSE')]);
+ assert.deepEqual(rows.filter((_,i)=>i%3===0),['TRUE',...Array(16).fill('FALSE')]);
  assert.ok(rows.filter((_,i)=>i%3===1).every(label=>label.length>0));
  assert.equal(args.includes('--print-column=3'),true);
 });
@@ -29,7 +29,7 @@ test('cancel, unavailable, timeout, empty, ja and malformed choices fail closed'
    Object.assign(Error('missing'),{code:'ENOENT'}),
    Object.assign(Error('timeout'),{killed:true})])
   await assert.rejects(chooseLanguage(async()=>{throw failure}),/did not consume a boot/);
- for(const stdout of ['', 'ja\n', 'KO\n', 'en-US\nfr\n','never-heard-of'])
+ for(const stdout of ['', 'ja\n', 'KO\n', 'en-US\nfr\n','zh-CN\n','zh-TW\n','never-heard-of'])
   await assert.rejects(chooseLanguage(async()=>({stdout})),/invalid choice/);
 });
 test('main chooses before admission/boot; explicit language, restore and check-only bypass UI',async()=>{
@@ -50,6 +50,11 @@ test('main chooses before admission/boot; explicit language, restore and check-o
   await assert.rejects(main(['--mode','english','--language','ko','--admission',file],
     {pickLanguage:cancel}),/language target mismatch/);
   assert.equal(calls,1);assert.equal(await missing(),true);
+  for(const legacy of ['zh-CN','zh-TW']){
+    await assert.rejects(main(['--mode','english','--language',legacy,'--admission',file],
+      {pickLanguage:cancel}),/Unsupported language code/);
+    assert.equal(await missing(),true);
+  }
   await fs.writeFile(file,JSON.stringify({...base,language:'ko'}));
   await assert.rejects(main(['--mode','english','--admission',file,'198.51.100.23'],
     {pickLanguage:async()=>{calls++;return byCode('ko')}}),/not an active local LAN address/);

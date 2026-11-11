@@ -6,8 +6,8 @@ const {CODES, byCode} = require('./engine/switch2/ro/language-codes.cjs');
 const run = promisify(execFile);
 const names = Object.freeze({
   'en-US':'英語（米国）', fr:'フランス語', de:'ドイツ語', it:'イタリア語', es:'スペイン語',
-  'zh-CN':'中国語（簡体字）', ko:'韓国語', nl:'オランダ語', pt:'ポルトガル語',
-  ru:'ロシア語', 'zh-TW':'中国語（繁体字）', 'en-GB':'英語（英国）',
+  ko:'韓国語', nl:'オランダ語', pt:'ポルトガル語',
+  ru:'ロシア語', 'en-GB':'英語（英国）',
   'fr-CA':'フランス語（カナダ）', 'es-419':'スペイン語（中南米）',
   'zh-Hans':'中国語（簡体字 / Hans）', 'zh-Hant':'中国語（繁体字 / Hant）',
   'pt-BR':'ポルトガル語（ブラジル）', pl:'ポーランド語', th:'タイ語'

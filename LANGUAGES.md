@@ -1,8 +1,8 @@
-# Language selection / 言語選択
+# Language indices / 言語番号
 
-The source covers 20 selectable language codes, **not** 20 console-proven language changes. `ja` is the restoration target; 19 other codes can be selected. The indices below are documented/legacy *starting candidates*, not a firmware-independent mapping: a real FW 23.0.1 preflight returned `nl` for index 7 rather than `ko`. The host checks this boot's `set` `MakeLanguageCode(enum)` and, on mismatch, scans base indices 0–17 read-only for exactly one matching canonical code before opening `set:sys`. If none, more than one, or a malformed reply is found, no setter is opened. For S2-only 18/19 it fails closed if the FW returns a fallback or no unique base match. Success means immediate mutable getter readback; game resources, HOME, SKU restrictions and persistence across reboot are separate.
+The SHA-256-verified **reference Switch 2 settings NSO** (`76230b9a78f10f968e135498a4329a29c585464e4da28bd6effcffc8c3e453e1`, title `0400000000000009`, build ID `dd1025c709e627972c919042a08507c84a73ed7e`) contains two distinct tables. Its *conversion table* at module VA `0xa945a` yields the following 18 unique codes. The separate legacy *compatibility table* at `0xa94ea` has 20 entries: `zh-CN` at 6, `ko` at 7, `zh-TW` at 11, `pl` at 18, `th` at 19. **Do not use that compatibility numbering for this conversion call.** Conversion slots 18/19 repeat `ja`/`en-US` and are not extra languages. The independently observed live `MakeLanguageCode(7)=nl` and `MakeLanguageCode(0)=ja` are consistent with the conversion table, but this reference NSO has not been independently identified as the live unit's exact NSO. All other live index values remain unmeasured.
 
-| Documented candidate enum | Code | Language |
+| Conversion index | Code | Language |
 |---:|---|---|
 | 0 | `ja` | Japanese / 日本語（復元先） |
 | 1 | `en-US` | US English / 米語 |
@@ -10,30 +10,29 @@ The source covers 20 selectable language codes, **not** 20 console-proven langua
 | 3 | `de` | German / ドイツ語 |
 | 4 | `it` | Italian / イタリア語 |
 | 5 | `es` | Spanish / スペイン語 |
-| 6 | `zh-CN` | Chinese (legacy simplified) / 中国語（簡体・旧コード） |
-| 7 | `ko` | Korean / 韓国語 |
-| 8 | `nl` | Dutch / オランダ語 |
-| 9 | `pt` | Portuguese / ポルトガル語 |
-| 10 | `ru` | Russian / ロシア語 |
-| 11 | `zh-TW` | Chinese (legacy traditional) / 中国語（繁体・旧コード） |
-| 12 | `en-GB` | UK English / 英語（英国） |
-| 13 | `fr-CA` | Canadian French / フランス語（カナダ） |
-| 14 | `es-419` | Latin American Spanish / スペイン語（中南米） |
-| 15 | `zh-Hans` | Chinese (simplified) / 中国語（簡体） |
-| 16 | `zh-Hant` | Chinese (traditional) / 中国語（繁体） |
-| 17 | `pt-BR` | Brazilian Portuguese / ポルトガル語（ブラジル） |
-| 18 | `pl` | Polish / ポーランド語（Switch 2 / FW 21+） |
-| 19 | `th` | Thai / タイ語（Switch 2 / FW 21+） |
+| 6 | `ko` | Korean / 韓国語 |
+| 7 | `nl` | Dutch / オランダ語 |
+| 8 | `pt` | Portuguese / ポルトガル語 |
+| 9 | `ru` | Russian / ロシア語 |
+| 10 | `en-GB` | UK English / 英語（英国） |
+| 11 | `fr-CA` | Canadian French / フランス語（カナダ） |
+| 12 | `es-419` | Latin American Spanish / スペイン語（中南米） |
+| 13 | `zh-Hans` | Chinese (simplified) / 中国語（簡体） |
+| 14 | `zh-Hant` | Chinese (traditional) / 中国語（繁体） |
+| 15 | `pt-BR` | Brazilian Portuguese / ポルトガル語（ブラジル） |
+| 16 | `pl` | Polish / ポーランド語 |
+| 17 | `th` | Thai / タイ語 |
 
-Source: [switchbrew Settings services: Language and LanguageCode](https://switchbrew.org/wiki/Settings_services#Language). The locally inspected Switch 2 settings image maps index 6 to `ko` and index 7 to `nl`, consistent with the observed index-7 `nl`; its identity with the live image is unproved. This table is a source-level code inventory, **not a live enum map or a list of languages the console/game will display**. The release's existing region-1 experiment is retained for all targets, not a claim that region 1 is each language's geographical region. The stage starts from region 0 / `ja`; restore accepts region 1 with a documented language (or mixed region 1 / `ja`) and returns to region 0 / `ja` after source-firmware mapping verification. Other starting states fail closed. A title must contain its own translation.
+`ja` is the restore target; 17 other codes are selectable. Legacy-only `zh-CN`/`zh-TW` are *not* menu choices. Each target and reverse operation checks the code returned by this boot's `set` `MakeLanguageCode(index)` before opening `set:sys`. If the candidate index mismatches, a bounded read-only scan of 0–17 requires exactly one matching canonical code; absent, duplicate or malformed responses refuse before setter. Only immediate mutable getter readback can establish a setting-stage result; the game's language resources, HOME, SKU restriction and reboot persistence are separate. A title must contain its own translations. The region-1 experiment is not a claim that region 1 is the geographical region of every selected language.
+
+The reference table was re-decoded from the original NSO after checking its file SHA-256 and all three decompressed segment hashes, with a private offline verifier (`findings.py`); no firmware image or private credentials are packaged. Its table contents are static evidence, not a complete call-path proof or a live index census. See [EVIDENCE.md](EVIDENCE.md).
 
 ## Commands / コマンド形状（ホスト側・実験用）
 
 - English compatibility entry: `node enable-english.cjs --admission admission.json [computer-LAN-IPv4]`.
-- Dialog: `node set-language.cjs --admission admission.json [computer-LAN-IPv4]` opens a Zenity radio-list of 19 non-Japanese targets, with US English initially selected. Cancelling, missing Zenity or timing out stops before a boot receipt, pairing token or listener. Requires a local graphical session. `--check-only` never opens a dialog.
-- Argument instead: `node set-language.cjs --language fr --admission admission.json [computer-LAN-IPv4]`; replace `fr` with any supported non-`ja` code. Explicit `--language` skips Zenity and works in a terminal without a GUI. In **both** paths, bind the exact selected non-English code in admission JSON's `language` field or the command refuses before consuming the boot. For US English, the `language` field is `en-US` or omitted for older admission files. The code is case-sensitive.
+- Dialog: `node set-language.cjs --admission admission.json [computer-LAN-IPv4]` opens a Zenity list of **17** non-Japanese targets; US English initially selected. Cancel, missing Zenity or timeout stops before this command's boot receipt, token or listener. `--check-only` never opens a dialog.
+- Argument: `node set-language.cjs --language ko --admission admission.json [computer-LAN-IPv4]` skips the GUI. The selected code must match the admission JSON `language` field for a non-English target. For US English, `en-US` or omission supports older admission files. Codes are case-sensitive.
 - Japanese restoration: `node restore-japanese.cjs --admission admission.json [computer-LAN-IPv4]`.
-- No IP is compiled into the release. Only active RFC1918 private IPv4 interfaces are eligible; with one the host chooses it, with several it prompts or requires an explicit *local* interface address. Choosing an IP does not establish a trusted console peer or firewall allowance; do not expose the pairing listener to an untrusted network.
-- `admission.json` is a **manual claim**, not a proof of a new boot, independent SAVE cleanup, controller state or target identity. Use the `mode` value `english` even when selecting another language; include the new `language` field for a non-English target. The one-use START and exact-owned scratch/recovery restrictions in README still apply.
+- No owner IP is compiled in; only active local RFC1918 IPv4 interfaces are eligible. Choosing one does not authenticate the console or create a firewall exception. The admission JSON is a **manual claim**, not independent boot/scene/SAVE proof. Internal `mode` remains `english` for any non-Japanese target, `restore` for Japanese. Do not reuse START in the same OS boot or remove a future run's SAVE scratch without its exact separate-boot ownership proof. This is experimental source, not a general-use live cleanup tool.
 
-日本語: 上表は**実機の番号対応表ではなく候補**。実機で番号7は `nl` だったため、`ko` をその番号のまま書かない。不一致時は番号0〜17を読取り、要求コードが一意でなければsetter前に停止する。この探索の実機成功と韓国語表示は未確認。`set-language.cjs` は言語引数を省くとZenityの選択画面を開き、`--language ko` なら省略。取消・GUI不足・admission JSONの言語不一致は起動ID・token・listener前に停止。選択先19＋日本語復元をソース上で扱うが、各言語のゲーム表示や再起動後の保持は未検証。IPはPCのローカルインターフェースから選択し、持ち主の固定値を配布しない。一般向けscratch回収手段は未完成なのでREADMEの制限を先に確認してください。
+日本語: 表は検証した参照Switch 2設定NSOの**変換表**の値。別の互換表にある「7=`ko`、18=`pl`、19=`th`」を混ぜない。実機で直接確認した番号は0=`ja`、7=`nl`のみで、6=`ko`を含む残りは同一実機の応答として未確認。ソースの番号は変換表に合わせて修正したが、実行時にも `MakeLanguageCode` を読取り、違えば0〜17を調べて一意に決まらなければ書かない。変更先17＋日本語復元。`zh-CN`／`zh-TW` は旧互換表だけにあるので選択肢から外した。Zenityの取消・GUI不足やadmissionとの言語不一致は起動枠とlistener前に停止。表示・ゲーム・再起動後の保持と一般向けSAVE回収は未検証。詳細はREADMEを参照。

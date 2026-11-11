@@ -76,7 +76,7 @@ test('language target rejected still restores both values once',async()=>{const 
 test('language readback mismatch still restores both values once',async()=>{const f=fixture({languageTargetRead:JA});await assert.rejects(f.main(f.memory),/did not read back/);assert.deepEqual(writes(f),[[57,'01000000'],[0,EN],[0,JA],[57,'00000000']]);assert.equal(outcome(f).status,'ABORT_RESTORED')});
 test('English success never invokes capture during FS relay',async()=>{const f=fixture({captureError:true});await f.main(f.memory);assert.deepEqual(writes(f),[[57,'01000000'],[0,EN]]);assert.equal(outcome(f).status,'LANGUAGE_TARGET_READBACK_NO_RESTORE')});
 
-test('all 19 non-Japanese codes use the matching enum and firmware reply before write',async()=>{
+test('all 17 modern non-Japanese codes use the matching enum and firmware reply before write',async()=>{
  for (const target of CODES.slice(1)) {
   const f=fixture({target}), result=await f.main(f.memory);
   assert.equal(result.status,'LANGUAGE_TARGET_READBACK_NO_RESTORE');
@@ -91,23 +91,37 @@ test('S2-only enum fallback and unknown target refuse all writes',async()=>{
   const f=fixture(options);await assert.rejects(f.main(f.memory));assert.deepEqual(writes(f),[]);
  }
 });
-test('observed enum7 nl and unique enum6 ko select canonical ko, never nl',async()=>{
+test('verified modern conversion table uses enum6 ko and enum7 nl',async()=>{
  const f=fixture({target:'ko',mappingTable:{6:byCode('ko').hex,7:byCode('nl').hex}});
  const result=await f.main(f.memory);
  assert.equal(result.status,'LANGUAGE_TARGET_READBACK_NO_RESTORE');
  assert.equal(outcome(f).selectedTargetEnum,6);
+ assert.equal(outcome(f).targetEnum,6);
+ assert.deepEqual(writes(f),[[57,'01000000'],[0,byCode('ko').hex]]);
+});
+test('legacy enum6 mismatch scans and selects unique enum7 ko before setter',async()=>{
+ const f=fixture({target:'ko',mappingTable:{6:'7a682d434e000000',7:byCode('ko').hex}});
+ await f.main(f.memory);
+ assert.equal(outcome(f).selectedTargetEnum,7);
  assert.equal(outcome(f).firmwareLanguageMapping.length,18);
  assert.deepEqual(writes(f),[[57,'01000000'],[0,byCode('ko').hex]]);
 });
 test('absent, duplicate and malformed ko mappings refuse before any setter',async()=>{
  for(const options of [
-  {target:'ko',mapping:byCode('nl').hex},
-  {target:'ko',mappingTable:{6:byCode('ko').hex,7:byCode('nl').hex,8:byCode('ko').hex}},
-  {target:'ko',mappingTable:{6:byCode('ko').hex,7:byCode('nl').hex,8:'6161616161616161'}}
+  {target:'ko',mappingTable:{6:byCode('nl').hex,7:byCode('nl').hex}},
+  {target:'ko',mappingTable:{6:byCode('nl').hex,7:byCode('ko').hex,8:byCode('ko').hex}},
+  {target:'ko',mappingTable:{6:byCode('nl').hex,7:byCode('ko').hex,8:'6161616161616161'}}
  ]){
   const f=fixture(options);await assert.rejects(f.main(f.memory));
   assert.deepEqual(writes(f),[]);
   assert.equal(outcome(f).status,'PREFLIGHT_FAILED_NO_WRITE');
   assert.equal(f.calls.some(c=>c.command==='root-native-sm-service'&&c.name==='set:sys'),false);
  }
+});
+test('numeric table rejects legacy-only aliases instead of offering misleading choices',()=>{
+ assert.deepEqual(CODES,['ja','en-US','fr','de','it','es','ko','nl','pt','ru',
+  'en-GB','fr-CA','es-419','zh-Hans','zh-Hant','pt-BR','pl','th']);
+ assert.equal(byCode('ko').index,6);assert.equal(byCode('nl').index,7);
+ assert.equal(byCode('pl').index,16);assert.equal(byCode('th').index,17);
+ for(const code of ['zh-CN','zh-TW'])assert.throws(()=>byCode(code),/Unsupported/);
 });
