@@ -9,6 +9,7 @@ const {spawn} = require('node:child_process');
 const readline = require('node:readline');
 const {pairingCode, listen} = require('./engine/lib/connection.cjs');
 const {byCode} = require('./engine/switch2/ro/language-codes.cjs');
+const {chooseLanguage} = require('./language-dialog.cjs');
 const {NativeClient} = require('./engine/lib/native.cjs');
 const {qualify} = require('./engine/lib/qualify.cjs');
 const {serve} = require('./engine/lib/bridge.cjs');
@@ -89,7 +90,7 @@ function connectCommand(host, token) {
 
 async function sourceDigest() {
   const names = ['run.cjs', 'admission.cjs', 'enable-english.cjs',
-    'set-language.cjs', 'restore-japanese.cjs', 'bootstrap.bas'];
+    'set-language.cjs', 'restore-japanese.cjs', 'language-dialog.cjs', 'bootstrap.bas'];
   async function walk(folder) {
     for (const entry of await fs.readdir(path.join(__dirname, folder), {withFileTypes: true})) {
       const name = folder + '/' + entry.name;
@@ -182,12 +183,13 @@ function waitForRpcStop(connection, signals = process, engineFinished = null) {
   });
 }
 
-async function main(args = process.argv.slice(2)) {
+async function main(args = process.argv.slice(2), {pickLanguage = chooseLanguage} = {}) {
   if (args.length === 1 && args[0] === '--help') {
     console.log('Usage: node run.cjs --check-only\n' +
-      '       node run.cjs --mode english --language CODE --admission admission.json [computer-IP]\n' +
-      '       node run.cjs --mode restore --admission admission.json [computer-IP]\n' +
-      'Switch 2 only. A checked manual boot admission is required before connection. See README.md.');
+      '       node set-language.cjs [--language CODE] --admission admission.json [computer-IP]\n' +
+      '       node enable-english.cjs --admission admission.json [computer-IP]\n' +
+      '       node restore-japanese.cjs --admission admission.json [computer-IP]\n' +
+      'Switch 2 only. Without --language the forward command opens a Zenity dialog; cancellation does not consume a boot. A checked manual boot admission is required before connection. See README.md.');
     return;
   }
   let mode = null, admissionPath = null, languageCode = null, checkOnly = false;
@@ -204,16 +206,24 @@ async function main(args = process.argv.slice(2)) {
   if (!checkOnly && (!['english','restore'].includes(mode) || !admissionPath ||
     positional.some(a => a.startsWith('--')))) throw Error('Provide --mode and --admission; see --help');
   if (mode==='restore' && languageCode !== null) throw Error('Restore does not accept a target language');
-  const target = mode==='english' ? byCode(languageCode || 'en-US') : byCode('ja');
-  if (mode==='english' && target.code==='ja') throw Error('Use restore for Japanese');
   if (process.env.NS2_METADATA_PROBE_4K !== undefined)
     throw Error('The proven 4 KiB metadata factor cannot be overridden.');
+  if (mode === 'english' && languageCode !== null) {
+    byCode(languageCode);
+    if (languageCode === 'ja') throw Error('Use restore for Japanese');
+  }
   const reviewedSource = await sourceDigest();
   if (checkOnly) {
     console.log('CHECK_ONLY_OK: source digest '+reviewedSource+'; no token/listener/console run. Live cleanup and compatibility NOT verified.');
     return {sourceSha256: reviewedSource, checkedOnly: true};
   }
-  const admission = await inspectAdmission(admissionPath, mode, target.code);
+  // Select before reading/consuming an admission, creating a token, or listening.
+  const target = mode === 'restore' ? byCode('ja') :
+    languageCode !== null ? byCode(languageCode) : await pickLanguage();
+  if (mode === 'english') check(target && typeof target.code === 'string' && target.code !== 'ja',
+    'Choose a non-Japanese supported language or use restore for Japanese');
+  const selected = byCode(target.code); // Never trust a dialog provider as a firmware mapping.
+  const admission = await inspectAdmission(admissionPath, mode, selected.code);
   const host = await chooseHost(positional);
   const currentBoot = {bootId: admission.bootId, savedNs2Prepared: true,
     receiptStartSent: false, operatorAttested: true, independentlyVerified: false};
@@ -227,7 +237,7 @@ async function main(args = process.argv.slice(2)) {
   const dumpDirectory = null, rpcMode = false, dumpFirmware = false;
   const directory = await fs.mkdtemp(path.join(workspace, 'switch2-'));
   await fs.writeFile(path.join(directory, 'connect.txt'), command + '\n', {mode: 0o600});
-  const result = {platform: 2, sourceSha256: reviewedSource, targetLanguage: target.code, postcleanup, currentBoot,
+  const result = {platform: 2, sourceSha256: reviewedSource, targetLanguage: selected.code, postcleanup, currentBoot,
     started: new Date().toISOString(), verified: false};
   let native, bridge, engine, failure;
   try {
@@ -247,7 +257,7 @@ async function main(args = process.argv.slice(2)) {
       addresses: {...connected.addresses, session: path.basename(directory), target: 'switch2'}});
     for (const name of ['shared', 'switch2'])
       await fs.cp(path.join(__dirname, 'engine', name), path.join(directory, name), {recursive: true});
-    engine = await startEngine(directory, dumpDirectory, rpcMode, mode, target.code);
+    engine = await startEngine(directory, dumpDirectory, rpcMode, mode, selected.code);
     if (rpcMode) await engine.ready;
     else checkEngine(await engine.finished);
     result.pipeline = JSON.parse(await fs.readFile(path.join(directory, 'switch2/pipeline.json')));
@@ -256,7 +266,7 @@ async function main(args = process.argv.slice(2)) {
     if (!result.pipeline.verified || !result.pipeline.cleanup?.cleanedUp ||
         result.regionLanguage.status !== (mode === 'english' ?
           'LANGUAGE_TARGET_READBACK_NO_RESTORE' : 'JAPANESE_TARGET_READBACK_NO_RESTORE') ||
-        (mode === 'english' && result.regionLanguage.targetLanguage !== target.code) ||
+        (mode === 'english' && result.regionLanguage.targetLanguage !== selected.code) ||
         result.regionLanguage.restorationIntentionallySkipped !== true)
       throw Error('Target language readback or FS cleanup did not verify. Preserve the raw receipts.');
     result.verified = true;
@@ -297,7 +307,7 @@ async function main(args = process.argv.slice(2)) {
     await save(path.join(directory, 'result.json'), result);
   }
   if (failure) throw Error(failure.message + '\nDetails: ' + directory);
-  console.log(target.code+' readback and FS cleanup verified; UI still requires independent image.');
+  console.log(selected.code+' readback and FS cleanup verified; UI still requires independent image.');
   if (dumpFirmware) console.log('System-program CodeFS dump: ' +
     path.join(dumpDirectory, 'firmware-dump.json'));
   console.log('Restart the console when finished.');
