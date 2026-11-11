@@ -36,11 +36,13 @@ all-in-one wrapper. It contains no private console logs or pairing material.
   not proof for every title/language or this new multi-language wrapper.
 - On 2026-11-10, a separate owner-operated wired run reached the mutable-
   language stage from region 1 / `ja` and read back region 1 / `en-US`. Its
-  **top-level run failed during FS resource retirement**. Its private report
-  lists 51 source-owned SAVE scratch nodes, **not shown as recovered**.
-  No game/HOME English display, reboot persistence, or complete launcher
-  success is inferred from that getter. Preserve private raw for source-bound
-  cleanup on a separately verified boot; do not publish it.
+  **top-level run failed during FS resource retirement**. A later, separate-
+  boot cleanup-only run removed exactly its 51 source-owned SAVE scratch nodes,
+  acknowledged commit, proved absence from a fresh SAVE clone and released
+  the session (`verified:true` in the private cleanup result). This does not
+  turn the earlier language trial into a complete launcher success. No
+  game/HOME English display or reboot persistence is inferred from that getter.
+  Private raw and cleanup receipts are not distributed.
 - The acquisition/bootstrap/native payload in this tree derive from that
   exact English-settings trial. The executed acquisition probe SHA-256 is
   `428939bd5ed1798533f862c09fac1b863cf38cac85ed9a5bd8026ccc3e284e6e`;
@@ -53,7 +55,9 @@ all-in-one wrapper. It contains no private console logs or pairing material.
 
 The 20-code selection table in [LANGUAGES.md](LANGUAGES.md) comes from public
 settings-service documentation. Except for `en-US`, the added language paths
-have **host-mock coverage only**; no other language's console UI is claimed.
+have **host-mock coverage only**; later Korean-targeted attempts stopped before
+its setter, so neither a Korean getter nor Korean UI has been observed. No
+other language's console UI is claimed.
 
 Host tests cover preflight/rollback logic; the console results above are
 from the individually identified trials. The live-proven *private,

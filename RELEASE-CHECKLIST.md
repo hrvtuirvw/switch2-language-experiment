@@ -14,9 +14,13 @@
       Future-run source-only raw-bound planner/cleanup core/adapter are included
       and host-tested; **a live recovery CLI, distinct-boot admission and fresh
       SAVE absence proof for a new run remain unimplemented.**
-- [ ] Recover the latest owner-private exact-owned SAVE scratch 51 nodes
-      on a separately verified boot, commit and prove fresh-clone absence;
-      do not treat its language readback or a previous run's cleanup as proof.
+- [x] Recover the later English-getter trial's exact-owned SAVE scratch 51
+      nodes on a separately verified boot: 51 removals, commit, fresh-clone
+      absence and session release verified. This does not verify its original
+      forward run or the newly generalized launcher.
+- [ ] Recover any newer owner-private exact-owned SAVE scratch on its own
+      separately verified boot; do not reuse the English trial's cleanup
+      receipt or treat a readback as proof of cleanup.
 - [ ] Execute the assembled wrapper and new mixed-state restore stage on a
       console; independently check UI and reboot persistence. Record this run
       separately from host tests and the earlier setting-stage proof.
