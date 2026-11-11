@@ -56,19 +56,29 @@ all-in-one wrapper. It contains no private console logs or pairing material.
 The reference Switch 2 settings NSO has an 18-unique-code conversion table
 and a distinct legacy 20-slot compatibility table. The candidate selects the
 17 non-Japanese conversion codes listed in [LANGUAGES.md](LANGUAGES.md), not
-legacy-only `zh-CN`/`zh-TW`. The NSO was SHA/segment verified, but its identity
-with the live unit is unproven. A subsequent owner-run Korean preflight reached FS and observed
+legacy-only `zh-CN`/`zh-TW`. The NSO was SHA/segment verified, but its binary identity with the live
+unit is unproven. A prior Korean preflight reached FS and observed
 `MakeLanguageCode(7) = nl` and `MakeLanguageCode(0) = ja`; it refused before
-opening the Korean setter. Its 51 owned SAVE nodes were subsequently recovered
-on a distinct boot, with commit, fresh-clone absence and session release.
+opening the Korean setter. Its 51 owned SAVE nodes were recovered on a
+distinct boot, with commit, fresh-clone absence and session release.
 Two further Korean-targeted runs failed earlier at FS acquisition, before
-language census or setter; each owned tree was recovered separately in the
-same strict manner. The local settings image suggests index 6 for `ko`, but
-the live unit's exact image was not established. The corrected source uses
-index 6 for `ko` and 16/17 for `pl`/`th`; the new bounded mismatch
-lookup and reverse mapping are host-mock tested, **not** console-accepted.
-Neither a Korean getter nor Korean UI or reboot persistence has been observed.
-No other language's console UI is claimed.
+language census or setter; each owned tree was separately recovered.
+
+A subsequent **application-only, read-only** owner-console trial on a new,
+independently witnessed OS boot called `set` `GetLanguageCode` and then
+`MakeLanguageCode(0..19)`. Every index's canonical code and 8-byte payload
+matched the reference *conversion* table: live 6=`ko`, 7=`nl`, 16=`pl`,
+17=`th`, and duplicate 18/19=`ja`/`en-US`. Private result receipt SHA-256
+`488b982019196d9a9b9009c84ea1e9f6084eae2878d7b31b38153b30bca0f601`;
+private IPC event journal SHA-256
+`3c2e57a8ba5b2e91394ab57ef86447599b45792d2a4a06325e3515679dca9ea6`
+contains only the `set` getter command 0 and conversion command 2 (20
+successful replies), then owned handle close/allocation free. No `set:sys`
+service or setting setter was opened. There is no FS acquisition/SAVE
+scratch in this read-only probe, and the host firewall/port/input were
+restored. The code's new bounded mismatch lookup and reverse mapping remain
+host-mock tested, **not** live executed. No Korean setter/readback, Korean UI,
+reboot persistence, or other language's console UI is claimed.
 
 Host tests cover preflight/rollback logic; the console results above are
 from the individually identified trials. The live-proven *private,

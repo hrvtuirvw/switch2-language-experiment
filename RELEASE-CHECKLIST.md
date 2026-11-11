@@ -5,9 +5,10 @@
 - [x] Decode the SHA-verified reference Switch 2 settings conversion table,
       separate its legacy compatibility table, and expose 17 unique
       non-Japanese conversion targets plus the Japanese restore wrapper;
-      exclude legacy-only `zh-CN`/`zh-TW`. Index 7=`nl` is also live observed;
-      index 6=`ko` remains reference-image evidence, not live confirmation.
-      require a firmware-matched mapping before target write, bind non-English
+      exclude legacy-only `zh-CN`/`zh-TW`. Separately read all 20 indices on
+      the owner console: every code/payload matches the conversion table,
+      including live 6=`ko`, 7=`nl`, 16=`pl`, 17=`th`, duplicates 18/19.
+      Require a firmware-matched mapping before target write, bind non-English
       admission to its code, document mutable IPC limits and remove owner-local
       IP/UI helper paths. Add an optional host-only Zenity selection dialog to
       set-language.cjs, with --language bypass and cancel/missing-GUI refusal
@@ -41,7 +42,12 @@
       an adapter-only or patch-only archive.
 - [ ] Live-verify additional language targets and per-title resources before
       claiming any non-English language's actual game UI is changed.
-- [ ] Live-verify the enum mismatch census and reverse mapping, Korean setter
-      readback, UI and reboot persistence; host tests alone are not that proof.
+- [x] Live-read `set` `MakeLanguageCode(0..19)` in a separate app-only
+      one-START trial, independently compare all 20 reply wires with source,
+      and verify no `set:sys`/setter, full session cleanup and host restore.
+      This does not execute the assembled wrapper's mismatch fallback.
+- [ ] Live-verify the assembled wrapper's mismatch fallback/reverse mapping,
+      Korean setter readback, UI and reboot persistence. Host tests and the
+      separate read-only API census alone are not that proof.
 - [ ] Complete assembled launcher and future-run cleanup live acceptance before
       claiming a working general-use release. Preserve separate run receipts.
