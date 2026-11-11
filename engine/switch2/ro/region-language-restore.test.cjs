@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const source=fs.readFileSync(path.join(__dirname,'region-language-restore.cjs'),'utf8');
 const {byCode,CODES}=require('./language-codes.cjs');
 const JA=byCode('ja').hex, EN=byCode('en-US').hex;
-function fixture({region=1,language=EN,denied=false,languageError=false,regionError=false,rollbackError=false,readbackWrong=false,prior=1}={}) {
+function fixture({region=1,language=EN,denied=false,languageError=false,regionError=false,rollbackError=false,readbackWrong=false,prior=1,mappingTable}={}) {
  const files=new Map(),calls=[];let currentRegion=region,currentLanguage=language;
  const runtime={local:(s,suffix)=>'/fake/'+s+suffix,
   read:async file=>file.endsWith('-region-same-value.json')?
@@ -27,7 +27,7 @@ function fixture({region=1,language=EN,denied=false,languageError=false,regionEr
   if(request.handle===100){
    if(request.id===4){const b=Buffer.alloc(4);b.writeUInt32LE(currentRegion);return {result:0,hex:b.toString('hex')}}
    if(request.id===0)return {result:0,hex:currentLanguage};
-   if(request.id===2)return {result:0,hex:request.hex==='00000000'?JA:byCode(CODES[Buffer.from(request.hex,'hex').readUInt32LE()]).hex};
+   if(request.id===2){const index=Buffer.from(request.hex,'hex').readUInt32LE();return {result:0,hex:index===0?JA:(mappingTable?.[index]??byCode(CODES[index]).hex)}};
   }
   assert.equal(request.handle,101);
   if(request.id===57){if(regionError&&request.hex==='00000000')return {result:0x202};
@@ -103,4 +103,21 @@ test('failed French-to-Japanese write rolls back to French, not English',async()
  const FR=byCode('fr').hex;
  const f=fixture({language:FR,languageError:true});await assert.rejects(f.run(),/not acknowledged/);
  assert.deepEqual(f.writes(),[[0,JA],[0,FR]]);
+});
+test('modern ko index6 is accepted for restore when documented index7 returns nl',async()=>{
+ const KO=byCode('ko').hex;
+ const f=fixture({language:KO,mappingTable:{6:KO,7:byCode('nl').hex}});
+ const result=await f.run();assert.equal(result.status,'JAPANESE_TARGET_READBACK_NO_RESTORE');
+ assert.equal(f.proof().selectedOriginalEnum,6);
+ assert.deepEqual(f.writes(),[[0,JA],[57,'00000000']]);
+});
+test('unresolved or ambiguous modern ko mapping refuses restore before setter',async()=>{
+ const KO=byCode('ko').hex;
+ for(const mappingTable of [{7:byCode('nl').hex},
+  {6:KO,7:byCode('nl').hex,8:KO},
+  {6:KO,7:byCode('nl').hex,8:'6161616161616161'}]){
+  const f=fixture({language:KO,mappingTable});await assert.rejects(f.run());
+  assert.deepEqual(f.writes(),[]);
+  assert.equal(f.proof().status,'PREFLIGHT_FAILED_NO_WRITE');
+ }
 });

@@ -53,11 +53,18 @@ all-in-one wrapper. It contains no private console logs or pairing material.
   branch for `1`/`ja`. These source additions follow the prior console trials;
   the console results above come from their individually identified runs.
 
-The 20-code selection table in [LANGUAGES.md](LANGUAGES.md) comes from public
-settings-service documentation. Except for `en-US`, the added language paths
-have **host-mock coverage only**; later Korean-targeted attempts stopped before
-its setter, so neither a Korean getter nor Korean UI has been observed. No
-other language's console UI is claimed.
+The 20-code selection inventory in [LANGUAGES.md](LANGUAGES.md) is not a live
+enum table. A subsequent owner-run Korean preflight reached FS and observed
+`MakeLanguageCode(7) = nl` and `MakeLanguageCode(0) = ja`; it refused before
+opening the Korean setter. Its 51 owned SAVE nodes were subsequently recovered
+on a distinct boot, with commit, fresh-clone absence and session release.
+Two further Korean-targeted runs failed earlier at FS acquisition, before
+language census or setter; each owned tree was recovered separately in the
+same strict manner. The local settings image suggests index 6 for `ko`, but
+the live unit's exact image was not established. The new bounded mismatch
+lookup and reverse mapping are host-mock tested, **not** console-accepted.
+Neither a Korean getter nor Korean UI or reboot persistence has been observed.
+No other language's console UI is claimed.
 
 Host tests cover preflight/rollback logic; the console results above are
 from the individually identified trials. The live-proven *private,

@@ -1,8 +1,8 @@
 # Language selection / 言語選択
 
-The source covers the 20 `nn::settings::Language` entries documented for Switch 2, **not** 20 console-proven language changes. `ja` is the restoration target; 19 other codes can be selected. The host validates the exact code returned by this boot's `set` `MakeLanguageCode(enum)` before opening `set:sys`. It refuses an unsupported/mismatched mapping (including FW returning `ja`/`en-US` for S2 enum 18/19). Success means an immediate mutable getter readback; a game's resources, HOME, SKU restrictions and persistence across reboot are separate.
+The source covers 20 selectable language codes, **not** 20 console-proven language changes. `ja` is the restoration target; 19 other codes can be selected. The indices below are documented/legacy *starting candidates*, not a firmware-independent mapping: a real FW 23.0.1 preflight returned `nl` for index 7 rather than `ko`. The host checks this boot's `set` `MakeLanguageCode(enum)` and, on mismatch, scans base indices 0–17 read-only for exactly one matching canonical code before opening `set:sys`. If none, more than one, or a malformed reply is found, no setter is opened. For S2-only 18/19 it fails closed if the FW returns a fallback or no unique base match. Success means immediate mutable getter readback; game resources, HOME, SKU restrictions and persistence across reboot are separate.
 
-| Enum | Code | Language |
+| Documented candidate enum | Code | Language |
 |---:|---|---|
 | 0 | `ja` | Japanese / 日本語（復元先） |
 | 1 | `en-US` | US English / 米語 |
@@ -25,7 +25,7 @@ The source covers the 20 `nn::settings::Language` entries documented for Switch 
 | 18 | `pl` | Polish / ポーランド語（Switch 2 / FW 21+） |
 | 19 | `th` | Thai / タイ語（Switch 2 / FW 21+） |
 
-Source: [switchbrew Settings services: Language and LanguageCode](https://switchbrew.org/wiki/Settings_services#Language). This is a source-level enum inventory, **not a list of languages the Japanese-only console or any game will display**. The release's existing region-1 experiment is retained for all targets, not a claim that region 1 is each language's geographical region. The stage starts from region 0 / `ja`; restore accepts region 1 with a documented language (or mixed region 1 / `ja`) and returns to region 0 / `ja` after source-firmware mapping verification. Other starting states fail closed. A title must contain its own translation.
+Source: [switchbrew Settings services: Language and LanguageCode](https://switchbrew.org/wiki/Settings_services#Language). The locally inspected Switch 2 settings image maps index 6 to `ko` and index 7 to `nl`, consistent with the observed index-7 `nl`; its identity with the live image is unproved. This table is a source-level code inventory, **not a live enum map or a list of languages the console/game will display**. The release's existing region-1 experiment is retained for all targets, not a claim that region 1 is each language's geographical region. The stage starts from region 0 / `ja`; restore accepts region 1 with a documented language (or mixed region 1 / `ja`) and returns to region 0 / `ja` after source-firmware mapping verification. Other starting states fail closed. A title must contain its own translation.
 
 ## Commands / コマンド形状（ホスト側・実験用）
 
@@ -36,4 +36,4 @@ Source: [switchbrew Settings services: Language and LanguageCode](https://switch
 - No IP is compiled into the release. Only active RFC1918 private IPv4 interfaces are eligible; with one the host chooses it, with several it prompts or requires an explicit *local* interface address. Choosing an IP does not establish a trusted console peer or firewall allowance; do not expose the pairing listener to an untrusted network.
 - `admission.json` is a **manual claim**, not a proof of a new boot, independent SAVE cleanup, controller state or target identity. Use the `mode` value `english` even when selecting another language; include the new `language` field for a non-English target. The one-use START and exact-owned scratch/recovery restrictions in README still apply.
 
-日本語: `set-language.cjs` は言語引数を省くとZenityの選択画面を開き、`--language ko` のように明示すれば画面を省略します。キャンセルやGUIがない場合は起動ID・token・listenerに触れる前に停止。選択後もadmission JSONの `language` と一致しない場合は停止します。対応するのは設定サービスの言語コード20種類（変更先19＋日本語復元）をソース上で選び、**その起動のファームウェアから返るコードと照合して書く**ところまで。各言語のゲーム画面が変わったことや再起動後の保持は未検証。IPはPCのローカルインターフェースから選択し、固定値や持ち主のLANアドレスは配布しない。現行の一般向けscratch回収手段は未完成なので、実機操作はREADMEの制限を先に確認してください。
+日本語: 上表は**実機の番号対応表ではなく候補**。実機で番号7は `nl` だったため、`ko` をその番号のまま書かない。不一致時は番号0〜17を読取り、要求コードが一意でなければsetter前に停止する。この探索の実機成功と韓国語表示は未確認。`set-language.cjs` は言語引数を省くとZenityの選択画面を開き、`--language ko` なら省略。取消・GUI不足・admission JSONの言語不一致は起動ID・token・listener前に停止。選択先19＋日本語復元をソース上で扱うが、各言語のゲーム表示や再起動後の保持は未検証。IPはPCのローカルインターフェースから選択し、持ち主の固定値を配布しない。一般向けscratch回収手段は未完成なのでREADMEの制限を先に確認してください。

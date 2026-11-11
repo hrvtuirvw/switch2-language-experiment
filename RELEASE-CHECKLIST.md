@@ -20,9 +20,13 @@
       nodes on a separately verified boot: 51 removals, commit, fresh-clone
       absence and session release verified. This does not verify its original
       forward run or the newly generalized launcher.
-- [ ] Recover any newer owner-private exact-owned SAVE scratch on its own
-      separately verified boot; do not reuse the English trial's cleanup
-      receipt or treat a readback as proof of cleanup.
+- [x] Check the latest three Korean-targeted runs separately: one reached
+      enum7=`nl` and refused before setter; two failed at FS acquisition.
+      Their distinct cleanup-only boots each verified 51 exact removals,
+      commit, fresh SAVE absence and session release. These receipts do not
+      authorize deletion for any future run.
+- [ ] Recover any *future* owner-private exact-owned SAVE scratch on its own
+      separately verified boot; do not reuse prior cleanup receipts.
 - [ ] Execute the assembled wrapper and new mixed-state restore stage on a
       console; independently check UI and reboot persistence. Record this run
       separately from host tests and the earlier setting-stage proof.
@@ -33,5 +37,7 @@
       an adapter-only or patch-only archive.
 - [ ] Live-verify additional language targets and per-title resources before
       claiming any non-English language's actual game UI is changed.
+- [ ] Live-verify the enum mismatch census and reverse mapping, Korean setter
+      readback, UI and reboot persistence; host tests alone are not that proof.
 - [ ] Complete assembled launcher and future-run cleanup live acceptance before
       claiming a working general-use release. Preserve separate run receipts.

@@ -89,7 +89,24 @@ async function main(memory){
     proof.japaneseMappingWire=japaneseMapped.hex;
     proof.japaneseMapping=language(japaneseMapped,'MakeLanguageCode(0)');await save(file,proof);
     check(proof.japaneseMapping===JA,'ja language code not confirmed by this firmware');
-    check(proof.originalMapping===proof.originalLanguage,'Original language code not confirmed by this firmware');
+    // An observed original such as ko can use a different enum on this FW.
+    // Resolve it read-only before opening the setter; refuse ambiguity.
+    let matches=proof.originalMapping===proof.originalLanguage?[originalEntry.index]:[];
+    if(!matches.length){
+      proof.firmwareLanguageMapping=[{index:0,hex:proof.japaneseMapping},
+        {index:originalEntry.index,hex:proof.originalMapping}];
+      await save(file,proof);
+      for(let index=1;index<18;index++){
+        if(index===originalEntry.index)continue;
+        const arg=Buffer.alloc(4);arg.writeUInt32LE(index);
+        const reply=await ipc(getter,2,arg.toString('hex'));
+        const hex=language(reply,'MakeLanguageCode('+index+')');
+        proof.firmwareLanguageMapping.push({index,hex});await save(file,proof);
+        if(hex===proof.originalLanguage)matches.push(index);
+      }
+    }
+    check(matches.length===1,'Original language code not confirmed by this firmware (unique mapping absent)');
+    proof.selectedOriginalEnum=matches[0];proof.mappingVerified=true;await save(file,proof);
     const sys=await memory.request({command:'root-native-sm-service',handle:sm.export.handle,name:'set:sys'});
     proof.setterLookup=sys;await save(file,proof);
     check(!sys.transport && sys.result===0 && sys.moves?.length===1,

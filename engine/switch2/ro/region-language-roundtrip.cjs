@@ -89,7 +89,25 @@ async function main(memory,capture=require('./english-active-home.cjs').main){
     proof.japaneseMappingWire=japaneseMapped.hex;
     proof.japaneseMapping=language(japaneseMapped,'MakeLanguageCode(0)');await save(file,proof);
     check(proof.japaneseMapping===JA,'ja language code not confirmed by this firmware');
-    check(proof.targetMapping===target.hex,'Target language code not confirmed by this firmware');
+    // The observed FW maps enum 7 to nl, not ko. If the documented index
+    // differs, scan only the bounded base enum 0..17 before opening a setter.
+    // The setter payload is the canonical code, never the mismatched reply.
+    let matches=proof.targetMapping===target.hex?[target.index]:[];
+    if(!matches.length){
+      proof.firmwareLanguageMapping=[{index:0,hex:proof.japaneseMapping},
+        {index:target.index,hex:proof.targetMapping}];
+      await save(file,proof);
+      for(let index=1;index<18;index++){
+        if(index===target.index)continue;
+        const arg=Buffer.alloc(4);arg.writeUInt32LE(index);
+        const reply=await ipc(getter,2,arg.toString('hex'));
+        const hex=language(reply,'MakeLanguageCode('+index+')');
+        proof.firmwareLanguageMapping.push({index,hex});await save(file,proof);
+        if(hex===target.hex)matches.push(index);
+      }
+    }
+    check(matches.length===1,'Target language code not confirmed by this firmware (unique mapping absent)');
+    proof.selectedTargetEnum=matches[0];proof.mappingVerified=true;await save(file,proof);
     const sys=await memory.request({command:'root-native-sm-service',handle:sm.export.handle,name:'set:sys'});
     proof.setterLookup=sys;await save(file,proof);
     check(!sys.transport && sys.result===0 && sys.moves?.length===1,

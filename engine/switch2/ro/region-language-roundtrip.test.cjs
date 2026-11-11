@@ -23,7 +23,8 @@ function fixture(opt={}){
    if(r.handle===100){
     if(r.id===4){let b=Buffer.alloc(4);b.writeUInt32LE(region);return {result:0,hex:b.toString('hex')}}
     if(r.id===0)return {result:0,hex:lang};
-    if(r.id===2){return {result:0,hex:r.hex==='00000000'?(opt.jaMapping??JA):(opt.mapping??byCode(CODES[Buffer.from(r.hex,'hex').readUInt32LE()]).hex)}}
+    if(r.id===2){const index=Buffer.from(r.hex,'hex').readUInt32LE();return {result:0,hex:index===0?(opt.jaMapping??JA):
+      (opt.mappingTable?.[index]??(index===byCode(opt.target||'en-US').index?(opt.mapping??byCode(CODES[index]).hex):byCode(CODES[index]).hex))}}
    }
    assert.equal(r.handle,101);
    if(r.id===57){
@@ -88,5 +89,25 @@ test('all 19 non-Japanese codes use the matching enum and firmware reply before 
 test('S2-only enum fallback and unknown target refuse all writes',async()=>{
  for (const options of [{target:'pl',mapping:JA},{target:'th',mapping:EN},{target:'xx'}]){
   const f=fixture(options);await assert.rejects(f.main(f.memory));assert.deepEqual(writes(f),[]);
+ }
+});
+test('observed enum7 nl and unique enum6 ko select canonical ko, never nl',async()=>{
+ const f=fixture({target:'ko',mappingTable:{6:byCode('ko').hex,7:byCode('nl').hex}});
+ const result=await f.main(f.memory);
+ assert.equal(result.status,'LANGUAGE_TARGET_READBACK_NO_RESTORE');
+ assert.equal(outcome(f).selectedTargetEnum,6);
+ assert.equal(outcome(f).firmwareLanguageMapping.length,18);
+ assert.deepEqual(writes(f),[[57,'01000000'],[0,byCode('ko').hex]]);
+});
+test('absent, duplicate and malformed ko mappings refuse before any setter',async()=>{
+ for(const options of [
+  {target:'ko',mapping:byCode('nl').hex},
+  {target:'ko',mappingTable:{6:byCode('ko').hex,7:byCode('nl').hex,8:byCode('ko').hex}},
+  {target:'ko',mappingTable:{6:byCode('ko').hex,7:byCode('nl').hex,8:'6161616161616161'}}
+ ]){
+  const f=fixture(options);await assert.rejects(f.main(f.memory));
+  assert.deepEqual(writes(f),[]);
+  assert.equal(outcome(f).status,'PREFLIGHT_FAILED_NO_WRITE');
+  assert.equal(f.calls.some(c=>c.command==='root-native-sm-service'&&c.name==='set:sys'),false);
  }
 });
