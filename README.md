@@ -1,54 +1,87 @@
-# Switch 2 multilingual settings — experimental all-in-one source
+# Switch 2 の言語設定を変更する
 
-Switch 2の可変な地域・言語設定を扱う、全部入りソースの実験版。英語設定、17言語からの選択、日本語への復元を一つのソースツリーにまとめています。固定の家庭内IPは含めず、実行PCのLANアドレスを選びます。Zenityの選択ダイアログ、または `--language` 引数で言語を指定できます。
+Switch 2 の `set` / `set:sys` を使って、本体の言語設定を書き換える実験コード。`pepsipu/ns2jb` をベースに、17言語の選択と日本語への復元を追加した。
 
-この本体で `set` の `MakeLanguageCode(0..19)` を読取り、20件すべてのコードと8バイト応答が参照Switch 2設定NSOの**変換表**と一致しました。以前の別試行では地域1／`en-US` の読戻しと英語の本体設定画面、日本語の設定値への復元を確認しています。これらはそれぞれの実機記録であり、選択ダイアログを含む今回の統合版を実行した記録とは分けて [EVIDENCE.md](EVIDENCE.md) にまとめています。
+試した環境は **FW 23.0.1 / SmileBASIC 4.4.9**。
 
-## 言語コード / Language codes
+## 実行
 
-| 番号 | コード | 言語 |
-|---:|---|---|
-| 0 | `ja` | 日本語（復元先） / Japanese |
-| 1 | `en-US` | 米語 / US English |
-| 2 | `fr` | フランス語 / French |
-| 3 | `de` | ドイツ語 / German |
-| 4 | `it` | イタリア語 / Italian |
-| 5 | `es` | スペイン語 / Spanish |
-| 6 | `ko` | 韓国語 / Korean |
-| 7 | `nl` | オランダ語 / Dutch |
-| 8 | `pt` | ポルトガル語 / Portuguese |
-| 9 | `ru` | ロシア語 / Russian |
-| 10 | `en-GB` | 英語（英国） / UK English |
-| 11 | `fr-CA` | フランス語（カナダ） / Canadian French |
-| 12 | `es-419` | スペイン語（中南米） / Latin American Spanish |
-| 13 | `zh-Hans` | 中国語（簡体） / Simplified Chinese |
-| 14 | `zh-Hant` | 中国語（繁体） / Traditional Chinese |
-| 15 | `pt-BR` | ポルトガル語（ブラジル） / Brazilian Portuguese |
-| 16 | `pl` | ポーランド語 / Polish |
-| 17 | `th` | タイ語 / Thai |
-
-`ja` は復元先、残る17コードが変更先です。番号18/19はそれぞれ `ja`/`en-US` の重複で、選択肢には入れません。別の旧互換表の番号を混ぜないでください（そちらの7は `ko`）。実行時にも、その起動の `MakeLanguageCode` 応答を確認し、番号が違えば0〜17を読取り、一意に対応する場合だけ書込みに進みます。対象タイトルの表示言語は、そのタイトルの翻訳資源にも依存します。変換表と実機での読取りの詳細は [LANGUAGES.md](LANGUAGES.md)。
-
-## 使い方 / Commands
-
-Node.js 22以降。ソースだけの検査は `node run.cjs --check-only`（本体への接続・選択ダイアログ・START送信なし）。
+Node.js 22以降が必要。言語をダイアログから選ぶ場合は Zenity も必要。
 
 ```sh
-node set-language.cjs --admission admission.json                 # Zenityで選択 / dialog
-node set-language.cjs --language ko --admission admission.json   # 引数で指定 / argument
-node enable-english.cjs --admission admission.json               # 米語 / US English
-node restore-japanese.cjs --admission admission.json             # 日本語へ復元 / restore
+node set-language.cjs --admission admission.json                  # 言語を選ぶ
+node set-language.cjs --language ko --admission admission.json    # 韓国語に変更
+node enable-english.cjs --admission admission.json                # 英語に変更
+node restore-japanese.cjs --admission admission.json              # 日本語に戻す
 ```
 
-必要なら各コマンド末尾に実行PCの有効なLAN IPv4を指定できます。省略時はローカルのRFC1918 IPv4から選択し、複数あるときは尋ねます。Zenityの取消・GUI不足・タイムアウトや指定コードとadmissionの不一致は、起動IDの消費・listener開始前に停止します。非英語のadmissionには選択コードと同じ `language` を入れます。`bootId`、`mode`（変更=`english`、復元=`restore`）に加え、`confirmedFreshOsBoot`、`confirmedNoPendingOwnedScratch`、`confirmedSavedNs2`、`confirmedStartUnused` の4項目を `true` にします。これらはオペレーターの申告欄なので、実際の起動・画面・SAVE状態を別に確認してください。
+PCのLAN側IPv4アドレスは自動で選ぶ。候補が複数ある場合はターミナルで番号を選ぶ。手動指定するならコマンド末尾にIPv4アドレスを付ける。
 
-**本体の完全OS起動ごとにSTARTは1回。** 応答不明のSTARTは再送しません。失敗して所有SAVE scratchが残った場合、該当runのraw・全ファイル内容を照合し、**別の完全起動**で所有物だけを非再帰で回収してください。`recovery/` は検査・回収のライブラリで、汎用の実機清掃コマンドではありません。runログや接続トークンを公開Issueへ貼らないでください。本体の90DNS／オフライン設定を維持し、Nintendoオンライン・本体更新・工場出荷情報・PRODINFO・シリアル・鍵・DNSの変更は行いません。
+`admission.json` には `bootId`、`mode`（変更は `english`、復元は `restore`）を指定。英語以外に変更するときは `language` に選択した言語コードを入れる。以下の4項目はすべて `true` にする。
 
-## 構成と観測範囲 / Source and observations
+- `confirmedFreshOsBoot`
+- `confirmedNoPendingOwnedScratch`
+- `confirmedSavedNs2`
+- `confirmedStartUnused`
 
-- `bootstrap.bas` は本体FW 23.0.1／SmileBASIC 4.4.9で使った起動ソース。SDK相対オフセットとハッシュを検査します。異なるビルドへ任意の単一オフセットだけを流用しないでください。
-- `engine/` は実機試行で使った取得・保持・FSメモリ・設定段階に由来するソースと、言語選択・復元の分岐を含みます。`set` のgetterと変換コマンド、`set:sys` の可変言語・地域setterを扱います。成功判定は設定値の即時読戻しです。
-- 過去の実機観測は英語の本体設定画面、日本語への設定値復元、カービィ エアライダーの英語タイトル（同一起動）、全20番号の読取りです。再起動後の別の観測では地域1／`ja` が返りました。実行単位・結果の区別は [EVIDENCE.md](EVIDENCE.md) に記録しています。
-- 言語選択・起動分岐・復元と回収コアのホストテストは `node --test admission.test.cjs host-network.test.cjs language-dialog.test.cjs recovery/recovery.test.cjs $(find engine -name '*.test.cjs' | sort)` で実行できます。
+これは実機の状態を自動確認する機能ではない。4項目を満たしているか、自分で確認してから実行する。言語選択のキャンセルや指定不一致は、待受開始・起動ID消費前に止まる。
 
-このソースは `pepsipu/ns2jb` コミット `95f5525089273c5fce0b95047f3600f8442e96ae` を基に変更しています。出典は [THIRD-PARTY.md](THIRD-PARTY.md)、試行ごとの証拠は [EVIDENCE.md](EVIDENCE.md) を参照してください。It changes mutable settings, not the console's hardware region/SKU, account country, or title-local translation resources.
+## 言語コード
+
+| 番号 | コード | 言語 |
+| ---: | --- | --- |
+| 0 | `ja` | 日本語（復元用） |
+| 1 | `en-US` | 英語（米国） |
+| 2 | `fr` | フランス語 |
+| 3 | `de` | ドイツ語 |
+| 4 | `it` | イタリア語 |
+| 5 | `es` | スペイン語 |
+| 6 | `ko` | 韓国語 |
+| 7 | `nl` | オランダ語 |
+| 8 | `pt` | ポルトガル語 |
+| 9 | `ru` | ロシア語 |
+| 10 | `en-GB` | 英語（英国） |
+| 11 | `fr-CA` | フランス語（カナダ） |
+| 12 | `es-419` | スペイン語（中南米） |
+| 13 | `zh-Hans` | 中国語（簡体字） |
+| 14 | `zh-Hant` | 中国語（繁体字） |
+| 15 | `pt-BR` | ポルトガル語（ブラジル） |
+| 16 | `pl` | ポーランド語 |
+| 17 | `th` | タイ語 |
+
+`0` は復元用。`18` と `19` はそれぞれ `ja` / `en-US` の重複なので選択肢から外した。
+
+旧互換表とは番号が違う（旧表の `7` は `ko`）。実行時に `MakeLanguageCode` を照合し、対応が異なる場合は `0`〜`17` を読み直す。一意に特定できない言語には書き込まない。詳しくは [LANGUAGES.md](LANGUAGES.md)。
+
+## どこまで動いたか
+
+過去の実機試行では、次の結果を得ている。
+
+- `MakeLanguageCode(0..19)` の20件すべてが、参照した設定NSOの変換表と一致（言語コード・8バイト応答）。
+- 地域 `1` / `en-US` を読戻し、本体設定画面が英語になった。
+- 別の実機試行では、同じ起動中に `en-US` の読戻しと『カービィ エアライダー』の英語タイトルを確認した。
+- 日本語の設定値への復元も確認。
+- 再起動後の別の試行では地域 `1` / `ja` が返った。
+
+**この統合版を最初から最後まで動かした記録はまだない。** 設定変更の判定は書込み直後の読戻しで行う。再起動後に日本語へ戻った観測もある。実行ごとの記録は [EVIDENCE.md](EVIDENCE.md)。
+
+書き換えるのは本体の可変設定値だけ。ハードウェアの地域区分やアカウントの国設定、ゲームの翻訳データは変わらない。
+
+## 注意
+
+**STARTは本体の完全OS起動1回につき1回。** 応答がなくても再送しない。
+
+失敗してSAVE内に作業ファイルが残った場合は、その実行のraw記録とファイル内容を照合し、次の完全起動で本コードが作成したものだけ回収する。再帰削除はしない。`recovery/` は回収処理のライブラリで、一括削除コマンドではない。
+
+90DNS／オフライン設定を維持する。Nintendoのオンライン接続や本体更新、PRODINFO・シリアル・鍵・DNSの変更は行わない。ログや接続トークンは公開Issueに貼らないこと。
+
+## テスト
+
+`bootstrap.bas` は上記FW・SmileBASICで使った起動ソース。SDK相対オフセットとハッシュを検査するので、別ビルドにオフセットだけ流用しないこと。`engine/` にFSメモリ・設定操作、`recovery/` に回収処理がある。
+
+```sh
+node run.cjs --check-only  # 本体に接続せずにチェック（ダイアログ・START送信なし）
+node --test admission.test.cjs host-network.test.cjs language-dialog.test.cjs recovery/recovery.test.cjs $(find engine -name '*.test.cjs' | sort)
+```
+
+元コード：[`pepsipu/ns2jb`（95f5525）](https://github.com/pepsipu/ns2jb/commit/95f5525089273c5fce0b95047f3600f8442e96ae) / [THIRD-PARTY.md](THIRD-PARTY.md)
