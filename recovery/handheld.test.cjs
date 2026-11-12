@@ -41,10 +41,10 @@ test('wrong raw ownership, post-FS stage or multiple pending trees refuse',async
 }));
 test('CLI requires one-use boot ID, private peer and valid mode',()=>{
  assert.deepEqual(options(['--check-only']),{run:false});
- assert.equal(options(['--run','--boot-id','fresh-boot-123456','--peer-ip','192.168.0.21']).peer,'192.168.0.21');
- for(const args of [['--run'],['--run','--boot-id','bad','--peer-ip','192.168.0.21'],
+ assert.equal(options(['--run','--boot-id','fresh-boot-123456','--peer-ip','192.168.56.21']).peer,'192.168.56.21');
+ for(const args of [['--run'],['--run','--boot-id','bad','--peer-ip','192.168.56.21'],
    ['--run','--boot-id','fresh-boot-123456','--peer-ip','8.8.8.8'],['--check-only','--run'],
-   ['--run','--boot-id','fresh-boot-123456','--peer-ip','192.168.0.21','--host-ip','0.0.0.0']])
+   ['--run','--boot-id','fresh-boot-123456','--peer-ip','192.168.56.21','--host-ip','0.0.0.0']])
   assert.throws(()=>options(args));
 });
 test('complete exact cleanup journal unlocks the next boot; tampering refuses',async()=>fixture(async({runs,rawFile,root:tmp})=>{
