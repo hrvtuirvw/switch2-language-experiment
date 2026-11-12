@@ -31,7 +31,7 @@ async function consumeBoot(runs,boot,sourceSha256,reader=fs){
   const result=path.join(runs,entry.name,'result.json');
   const prior=await reader.readFile(result,'utf8').then(JSON.parse).catch(()=>null);
   check(prior?.verified===true&&prior?.pipeline?.cleanup?.cleanedUp===true,
-   'unresolved prior host run '+entry.name+'; preserve it and perform exact-owned recovery first');
+   'unresolved prior host run '+entry.name+'; preserve runs/, do not send START, and read README.md (no self-service recovery CLI)');
  }
  const receipt=path.join(runs,'boot-'+boot.bootId+'.json');
  const record={bootId:boot.bootId,mode:boot.mode,language:boot.language,
