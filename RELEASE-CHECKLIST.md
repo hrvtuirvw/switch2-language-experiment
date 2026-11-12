@@ -51,8 +51,10 @@
       separate read-only API census alone are not that proof.
 - [ ] Complete assembled launcher and future-run cleanup live acceptance before
       claiming a working general-use release. Preserve separate run receipts.
-- [ ] Provide and test a usable recovery command that binds an individual run's
-      raw/source, independently checks a new full OS boot and live SAVE ownership,
-      journals exact nonrecursive removals, commits, verifies fresh-mount absence
-      and restores the connection. Until then, README explicitly tells users to
-      preserve `runs/` and stop; this source package is not self-service recovery.
+- [x] Provide a handheld-style recovery entry for one complete source-owned
+      pre-language FS-failure shape: offline raw/source/pipeline selection,
+      separate one-use boot journal, exact live SAVE inventory and bytes,
+      nonrecursive removal journal, commit, fresh clone absence and release.
+      Other failure shapes still stop rather than guess or delete.
+- [ ] Independently exercise the new generic CLI and its supported failure
+      shape on a separate console boot before claiming live recovery acceptance.

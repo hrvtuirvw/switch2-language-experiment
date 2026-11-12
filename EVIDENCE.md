@@ -84,9 +84,11 @@ Host tests cover preflight/rollback logic; the console results above are
 from the individually identified trials. The live-proven *private,
 exact-eiadiX-owned* cleanup runner lives outside this source candidate and is
 not a user-facing cleanup command.
-The added `recovery/` library derives an exact SAVE tree from a **new** run's
-SHA-bound raw and producer and checks content/foreign nodes before journaled
-nonrecursive cleanup. Synthetic host tests pass; there is no live recovery CLI,
-independent current-boot admission, or fresh-SAVE absence proof for a new run.
+The `recovery/handheld.cjs` entry selects one supported pre-language FS failure
+from its raw/source and terminal pipeline, then uses a separate one-use boot
+journal and exact-owned SAVE library for nonrecursive cleanup, commit and fresh
+clone absence. Synthetic host tests pass; the new generic entry has not itself
+been run on the console. It refuses other failure shapes. Its operator-supplied
+boot ID is not independent proof of a new OS boot or Direct scene.
 The integrated English/restore wrapper is distributed here as experimental
 source; the observations above identify the earlier console stages precisely.

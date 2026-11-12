@@ -3,6 +3,7 @@
 // it is not a measurement of the console's OS boot or SAVE state.
 // Fail closed after any uncertain host attempt. Never infer scratch absence from a prefix.
 const fs=require('node:fs/promises'),path=require('node:path');
+const {verified:verifiedRecovery}=require('./recovery/verified-cleanup.cjs');
 const check=(condition,message)=>{if(!condition)throw Error('Boot journal: '+message)};
 function createBootRecord(bootId,mode,language){
  check(typeof bootId==='string'&&/^[a-zA-Z0-9_-]{16,64}$/.test(bootId),
@@ -30,8 +31,9 @@ async function consumeBoot(runs,boot,sourceSha256,reader=fs){
   check(/^switch2-[a-zA-Z0-9_-]+$/.test(entry.name),'unknown directory in runs: '+entry.name);
   const result=path.join(runs,entry.name,'result.json');
   const prior=await reader.readFile(result,'utf8').then(JSON.parse).catch(()=>null);
-  check(prior?.verified===true&&prior?.pipeline?.cleanup?.cleanedUp===true,
-   'unresolved prior host run '+entry.name+'; preserve runs/, do not send START, and read README.md (no self-service recovery CLI)');
+  check(prior?.verified===true&&prior?.pipeline?.cleanup?.cleanedUp===true||
+   await verifiedRecovery(entry.name,runs),
+   'unresolved prior host run '+entry.name+'; preserve runs/, do not send START, and use recovery/handheld.cjs');
  }
  const receipt=path.join(runs,'boot-'+boot.bootId+'.json');
  const record={bootId:boot.bootId,mode:boot.mode,language:boot.language,
