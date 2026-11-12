@@ -17,14 +17,7 @@ node restore-japanese.cjs --admission admission.json              # 日本語に
 
 PCのLAN側IPv4アドレスは自動で選ぶ。候補が複数ある場合はターミナルで番号を選ぶ。手動指定するならコマンド末尾にIPv4アドレスを付ける。
 
-`admission.json` には `bootId`、`mode`（変更は `english`、復元は `restore`）を指定。英語以外に変更するときは `language` に選択した言語コードを入れる。以下の4項目はすべて `true` にする。
-
-- `confirmedFreshOsBoot`
-- `confirmedNoPendingOwnedScratch`
-- `confirmedSavedNs2`
-- `confirmedStartUnused`
-
-これは実機の状態を自動確認する機能ではない。4項目を満たしているか、自分で確認してから実行する。言語選択のキャンセルや指定不一致は、待受開始・起動ID消費前に止まる。
+`admission.json` は変更時なら `{"bootId":"fresh-boot-20261112-01","mode":"english"}`、日本語復元なら `{"bootId":"fresh-boot-20261112-02","mode":"restore"}`。英語以外は `"language":"ko"` のように選択したコードも入れる。`bootId` は完全OS起動ごとに別の値を指定する。使用済みIDは記録され、同じIDでの再実行は止まる。起動の新しさやSAVE内の残留物は自動判定しないので、START未使用と作業ファイルの有無を実行前に確認する。言語選択のキャンセルや指定不一致は、待受開始・起動ID消費前に止まる。
 
 ## 言語コード
 

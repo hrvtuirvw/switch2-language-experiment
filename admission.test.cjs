@@ -3,19 +3,18 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {inspectAdmission,consumeBoot}=require('./admission.cjs');
 const sha='a'.repeat(64);
 async function fixture(fn){const dir=await fs.mkdtemp(path.join(os.tmpdir(),'ns2-language-admission-'));
- try {const admission={bootId:'new-os-boot-123456',mode:'english',confirmedFreshOsBoot:true,
-  confirmedNoPendingOwnedScratch:true,confirmedSavedNs2:true,confirmedStartUnused:true};
+ try {const admission={bootId:'new-os-boot-123456',mode:'english'};
   const file=path.join(dir,'admission.json');await fs.writeFile(file,JSON.stringify(admission));
   await fn({dir,file,admission,runs:path.join(dir,'runs')});
  } finally {await fs.rm(dir,{recursive:true,force:true})}}
-test('check manual admission then atomically consume boot ID once',async()=>fixture(async({file,runs})=>{
+test('check boot ID and target then atomically consume boot ID once',async()=>fixture(async({file,runs})=>{
  const value=await inspectAdmission(file,'english');await consumeBoot(runs,value,sha);
  await assert.rejects(consumeBoot(runs,value,sha),{code:'EEXIST'});
 }));
-test('mode, unknown field, missing confirmation and symlink refuse before journal',async()=>fixture(async({dir,file,admission,runs})=>{
+test('mode, legacy self-confirmation, unknown field and symlink refuse before journal',async()=>fixture(async({dir,file,admission,runs})=>{
  await assert.rejects(inspectAdmission(file,'restore'),/mode mismatch/);
- await fs.writeFile(file,JSON.stringify({...admission,confirmedSavedNs2:false}));
- await assert.rejects(inspectAdmission(file,'english'),/confirmedSavedNs2/);
+ await fs.writeFile(file,JSON.stringify({...admission,confirmedSavedNs2:true}));
+ await assert.rejects(inspectAdmission(file,'english'),/unexpected admission fields/);
  await fs.writeFile(file,JSON.stringify({...admission,privateToken:'no'}));
  await assert.rejects(inspectAdmission(file,'english'),/unexpected admission fields/);
  await fs.symlink(file,path.join(dir,'link.json'));

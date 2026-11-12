@@ -189,7 +189,7 @@ async function main(args = process.argv.slice(2), {pickLanguage = chooseLanguage
       '       node set-language.cjs [--language CODE] --admission admission.json [computer-IP]\n' +
       '       node enable-english.cjs --admission admission.json [computer-IP]\n' +
       '       node restore-japanese.cjs --admission admission.json [computer-IP]\n' +
-      'Switch 2 only. Without --language the forward command opens a Zenity dialog; cancellation does not consume a boot. A checked manual boot admission is required before connection. See README.md.');
+      'Switch 2 only. Without --language the forward command opens a Zenity dialog; cancellation does not consume a boot. A unique operator-supplied boot ID is required before connection. See README.md.');
     return;
   }
   let mode = null, admissionPath = null, languageCode = null, checkOnly = false;
@@ -225,9 +225,10 @@ async function main(args = process.argv.slice(2), {pickLanguage = chooseLanguage
   const selected = byCode(target.code); // Never trust a dialog provider as a firmware mapping.
   const admission = await inspectAdmission(admissionPath, mode, selected.code);
   const host = await chooseHost(positional);
-  const currentBoot = {bootId: admission.bootId, savedNs2Prepared: true,
-    receiptStartSent: false, operatorAttested: true, independentlyVerified: false};
-  const postcleanup = {operatorAttested: true, independentlyVerified: false};
+  // The supplied ID is a journal key, not proof of boot preparation or START usage.
+  const currentBoot = {bootId: admission.bootId, savedNs2Prepared: null,
+    receiptStartSent: null, operatorAttested: false, independentlyVerified: false};
+  const postcleanup = {operatorAttested: false, independentlyVerified: false};
   // Atomic boot journal comes before pairing/listening; even an uncertain attempt consumes this ID.
   await consumeBoot(path.join(__dirname,'runs'), admission, reviewedSource);
   const token = pairingCode();
@@ -243,7 +244,7 @@ async function main(args = process.argv.slice(2), {pickLanguage = chooseLanguage
   try {
     const connected = await listen({host, port, token, timeout: 0, onWaiting() {
       console.log(`Waiting for Switch 2 at ${host}:${port}.`);
-      console.log('New language-trial boot: saved NS2 LOAD/RUN/REMOVE and OOM were witnessed; never replay.');
+      console.log('Before START, verify a fresh full OS boot and saved NS2 LOAD/RUN/REMOVE and OOM; never replay.');
       console.log('Parent-only one START after fresh live peer/ownership review:');
       console.log('  ' + command);
       console.log('Run folder: ' + directory);

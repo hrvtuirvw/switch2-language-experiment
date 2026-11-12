@@ -37,8 +37,7 @@ test('main chooses before admission/boot; explicit language, restore and check-o
  try {
   const bootId='dialog-test-'+Math.random().toString(36).slice(2).padEnd(18,'a');
   const file=path.join(dir,'admission.json');
-  const base={bootId,mode:'english',confirmedFreshOsBoot:true,
-    confirmedNoPendingOwnedScratch:true,confirmedSavedNs2:true,confirmedStartUnused:true};
+  const base={bootId,mode:'english'};
   const bootReceipt=path.join(__dirname,'runs','boot-'+bootId+'.json');
   const missing=()=>fs.stat(bootReceipt).then(()=>false,error=>error.code==='ENOENT');
   assert.equal(await missing(),true);

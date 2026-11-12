@@ -1,5 +1,5 @@
 'use strict';
-// Local operator admission, not an independent console measurement.
+// Operator-supplied boot ID, not an independent console measurement.
 // Fail closed after any uncertain host attempt. Never infer scratch absence from a prefix.
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
 const check=(condition,message)=>{if(!condition)throw Error('Admission: '+message)};
@@ -15,8 +15,7 @@ async function inspectAdmission(file,mode,targetLanguage='en-US',reader=fs){
  const bytes=await reader.readFile(absolute);
  check(bytes.length<4096,'admission too large');
  const value=JSON.parse(bytes);
- const allowed=['bootId','confirmedFreshOsBoot','confirmedNoPendingOwnedScratch',
-  'confirmedSavedNs2','confirmedStartUnused','mode',...(value.language===undefined?[]:['language'])];
+ const allowed=['bootId','mode',...(value.language===undefined?[]:['language'])];
  check(Object.keys(value).sort().join(',')===allowed.sort().join(','),
   'unexpected admission fields');
  check(typeof value.bootId==='string'&&/^[a-zA-Z0-9_-]{16,64}$/.test(value.bootId),
@@ -25,8 +24,6 @@ async function inspectAdmission(file,mode,targetLanguage='en-US',reader=fs){
  check(value.language===targetLanguage ||
   (value.language===undefined && (mode==='restore' || targetLanguage==='en-US')),
   'language target mismatch or missing explicit target');
- for(const key of ['confirmedFreshOsBoot','confirmedNoPendingOwnedScratch','confirmedSavedNs2','confirmedStartUnused'])
-  check(value[key]===true,'explicit operator confirmation missing: '+key);
  return {...value,admissionSha256:crypto.createHash('sha256').update(bytes).digest('hex')};
 }
 async function consumeBoot(runs,admission,sourceSha256,reader=fs){
@@ -51,7 +48,7 @@ async function consumeBoot(runs,admission,sourceSha256,reader=fs){
  const record={bootId:admission.bootId,mode:admission.mode,language:admission.language||null,
   admissionSha256:admission.admissionSha256,
   sourceSha256,attemptPossiblyAdmitted:true,started:new Date().toISOString(),
-  warning:'Manual operator claims are not independently verified by this program. Do not retry same boot.'};
+  warning:'Boot identity is operator-supplied, not independently verified. Do not retry same boot.'};
  await reader.writeFile(receipt,JSON.stringify(record,null,2)+'\n',{flag:'wx',mode:0o600});
  return receipt;
 }
