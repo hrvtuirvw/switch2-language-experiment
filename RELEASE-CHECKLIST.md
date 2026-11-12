@@ -18,9 +18,9 @@
 - [x] Run the current complete host suite and source-only preflight.
 - [x] Recover exact eiadiX 51-node SAVE scratch on an independently new boot;
       validated all entries, nonrecursive deletion, commit and fresh-clone absence.
-      Future-run source-only raw-bound planner/cleanup core/adapter are included
-      and host-tested; **a live recovery CLI, distinct-boot admission and fresh
-      SAVE absence proof for a new run remain unimplemented.**
+      Future-run raw-bound planner/cleanup core/adapter and a runnable
+      cleanup-only CLI are included and host-tested; independent live
+      acceptance for the new CLI remains outstanding.
 - [x] Recover the later English-getter trial's exact-owned SAVE scratch 51
       nodes on a separately verified boot: 51 removals, commit, fresh-clone
       absence and session release verified. This does not verify its original
@@ -51,7 +51,7 @@
       separate read-only API census alone are not that proof.
 - [ ] Complete assembled launcher and future-run cleanup live acceptance before
       claiming a working general-use release. Preserve separate run receipts.
-- [x] Provide a handheld-style recovery entry for one complete source-owned
+- [x] Provide an exact-owned SAVE recovery entry for one complete source-owned
       pre-language FS-failure shape: offline raw/source/pipeline selection,
       separate one-use boot journal, exact live SAVE inventory and bytes,
       nonrecursive removal journal, commit, fresh clone absence and release.

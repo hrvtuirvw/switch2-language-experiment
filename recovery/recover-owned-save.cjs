@@ -68,10 +68,10 @@ function options(args){
   else if(args[i]==='--boot-id'&&bootId===null)bootId=args[++i];
   else if(args[i]==='--peer-ip'&&peer===null)peer=args[++i];
   else if(args[i]==='--host-ip'&&host===null)host=args[++i];
-  else throw Error('Usage: node recovery/handheld.cjs --check-only | --run --boot-id ID --peer-ip SWITCH_IP [--host-ip PC_IP]');
+  else throw Error('Usage: node recovery/recover-owned-save.cjs --check-only | --run --boot-id ID --peer-ip SWITCH_IP [--host-ip PC_IP]');
  }
  if(!run||!bootId||!isPrivateIPv4(peer)||host!==null&&!isPrivateIPv4(host))
-  throw Error('Usage: node recovery/handheld.cjs --check-only | --run --boot-id ID --peer-ip SWITCH_IP [--host-ip PC_IP]');
+  throw Error('Usage: node recovery/recover-owned-save.cjs --check-only | --run --boot-id ID --peer-ip SWITCH_IP [--host-ip PC_IP]');
  createBootRecord(bootId,'restore','ja');
  return {run,bootId,peer,host};
 }

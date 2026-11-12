@@ -67,12 +67,12 @@ PCのLAN側IPv4アドレスは自動で選ぶ。候補が複数ある場合は�
 ### 失敗して応答がなくなったら
 
 1. **STARTを再送しない。** PC側の `runs/` を丸ごと手元に保管する。`connect.txt` / `connection.json` には接続情報があるので、公開Issueに添付しない。
-2. まず `node recovery/handheld.cjs --check-only` を実行する。これは本体に接続せず、未回収の実行が**ちょうど1件**で、そのraw・作成元ソース・言語変更前の失敗記録から本コードの51個の作業ファイルを一意に特定できる場合だけ `pending:true` を表示する。対象外や記録の不一致では止まる。
+2. まず `node recovery/recover-owned-save.cjs --check-only` を実行する。これは本体に接続せず、未回収の実行が**ちょうど1件**で、そのraw・作成元ソース・言語変更前の失敗記録から本コードの51個の作業ファイルを一意に特定できる場合だけ `pending:true` を表示する。対象外や記録の不一致では止まる。
 3. `pending:true` の場合、失敗した起動とは**別の完全OS起動**でSmileBASIC Directを開き、保存済みNS2をLOAD/RUN/REMOVEして想定のOOM表示まで準備する。STARTがまだ未使用で、PCと本体が同じLANにあることを確認する。
 4. PCのターミナルで次を実行する。`SWITCH_IP` は本体のLAN側IPv4、`--boot-id` は**回収専用の新しい起動ID**。PCのLANアドレスが複数ある場合は末尾に `--host-ip PC_IP` を付ける。
 
    ```sh
-   node recovery/handheld.cjs --run --boot-id recovery-boot-20261112-01 --peer-ip SWITCH_IP
+   node recovery/recover-owned-save.cjs --run --boot-id recovery-boot-20261112-01 --peer-ip SWITCH_IP
    ```
 
 5. 表示された新しい `V=START(...)` 1行をSmileBASICに入力して内容を確認し、Enterを**1回だけ**押す。このコマンドは本体へのキー入力を代行しない。`OWNED_SAVE_RECOVERY_VERIFIED` と51件の削除・commit・新しいSAVE参照での不在・セッション解放が出たときだけ回収完了。失敗・中断・応答なしなら `runs/` と `recovery-runs/` を保存し、同じ起動でSTARTや回収コマンドを再実行しない。次の言語変更には、さらに**別の完全OS起動**と新しいIDが必要。

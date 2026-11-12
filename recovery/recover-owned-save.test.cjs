@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path');
-const {inspectRuns,options,main}=require('./handheld.cjs');
+const {inspectRuns,options,main}=require('./recover-owned-save.cjs');
 const {PRODUCER_SHA}=require('./future-scratch-plan.cjs');
 const {verified}=require('./verified-cleanup.cjs');
 const crypto=require('node:crypto');
@@ -44,6 +44,7 @@ test('wrong raw ownership, post-FS stage or multiple pending trees refuse',async
 }));
 test('CLI requires one-use boot ID, private peer and valid mode',()=>{
  assert.deepEqual(options(['--check-only']),{run:false});
+ assert.throws(()=>options(['--bogus']),/Usage: node recovery\/recover-owned-save\.cjs --check-only/);
  assert.equal(options(['--run','--boot-id','fresh-boot-123456','--peer-ip','192.168.56.21']).peer,'192.168.56.21');
  for(const args of [['--run'],['--run','--boot-id','bad','--peer-ip','192.168.56.21'],
    ['--run','--boot-id','fresh-boot-123456','--peer-ip','8.8.8.8'],['--check-only','--run'],

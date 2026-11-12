@@ -1,7 +1,7 @@
 'use strict';
 // Future-run SAVE recovery stage only. Never run on the acquisition boot.
-// Handheld mode has no HDMI. The caller supplies a one-use operator-attested
-// full-OS-reboot/NS2/START0 proof and an immediate peer/lease witness.
+// The recovery CLI does not observe HDMI. The caller supplies a one-use
+// operator-attested full-OS-reboot/NS2/START0 proof and an immediate peer witness.
 // Do not describe operator testimony as independently verified scene evidence.
 const fs=require('node:fs/promises'),path=require('node:path');
 const {createRequire}=require('node:module');
@@ -28,7 +28,7 @@ async function main({engineDir,rawFile,rawSha256,producerFile,priorRun,verifyBoo
   proof?.priorRun===priorRun&&proof?.liveSceneVerified===false&&
   /^[a-f0-9]{64}$/.test(proof?.bootProofSha256||''),
   'one-use operator-attested later-boot receipt must bind the source run');
- check(await liveWitness(proof)===true,'live handheld peer/lease witness missing');
+ check(await liveWitness(proof)===true,'live cleanup peer/source witness missing');
  const plan=await (deps.plan||planner.plan)({rawFile,expectedRawSha256:rawSha256,
   producerFile,expectedRun:priorRun});
  check(plan?.run===priorRun&&plan?.rawSha256===rawSha256,

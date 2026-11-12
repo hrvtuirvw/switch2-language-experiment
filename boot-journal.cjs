@@ -33,7 +33,7 @@ async function consumeBoot(runs,boot,sourceSha256,reader=fs){
   const prior=await reader.readFile(result,'utf8').then(JSON.parse).catch(()=>null);
   check(prior?.verified===true&&prior?.pipeline?.cleanup?.cleanedUp===true||
    await verifiedRecovery(entry.name,runs),
-   'unresolved prior host run '+entry.name+'; preserve runs/, do not send START, and use recovery/handheld.cjs');
+   'unresolved prior host run '+entry.name+'; preserve runs/, do not send START, and use recovery/recover-owned-save.cjs');
  }
  const receipt=path.join(runs,'boot-'+boot.bootId+'.json');
  const record={bootId:boot.bootId,mode:boot.mode,language:boot.language,

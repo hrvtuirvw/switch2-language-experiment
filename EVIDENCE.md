@@ -84,7 +84,7 @@ Host tests cover preflight/rollback logic; the console results above are
 from the individually identified trials. The live-proven *private,
 exact-eiadiX-owned* cleanup runner lives outside this source candidate and is
 not a user-facing cleanup command.
-The `recovery/handheld.cjs` entry selects one supported pre-language FS failure
+The `recovery/recover-owned-save.cjs` entry selects one supported pre-language FS failure
 from its raw/source and terminal pipeline, then uses a separate one-use boot
 journal and exact-owned SAVE library for nonrecursive cleanup, commit and fresh
 clone absence. Synthetic host tests pass; the new generic entry has not itself

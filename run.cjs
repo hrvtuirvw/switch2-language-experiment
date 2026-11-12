@@ -308,7 +308,7 @@ async function main(args = process.argv.slice(2), {pickLanguage = chooseLanguage
     await save(path.join(directory, 'result.json'), result);
   }
   if (failure) throw Error(failure.message + '\nDetails: ' + directory +
-    '\nPreserve runs/, do not retry START, and check node recovery/handheld.cjs --check-only (README.md).');
+    '\nPreserve runs/, do not retry START, and check node recovery/recover-owned-save.cjs --check-only (README.md).');
   console.log(selected.code+' readback and FS cleanup verified; UI still requires independent image.');
   if (dumpFirmware) console.log('System-program CodeFS dump: ' +
     path.join(dumpDirectory, 'firmware-dump.json'));
