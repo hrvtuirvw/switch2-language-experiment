@@ -20,8 +20,12 @@
       a supervised exact-peer temporary TCP 39380 allowance, verify its live
       nft rule from the Node launcher, and restore the original INPUT handles
       after a no-START lease smoke and a failed pre-admission child.
-- [ ] Recheck a future genuinely new console boot and first TCP handshake
-      under the supervised lease; `BOOT FAILED 58` spent the earlier START.
+- [x] On a later console boot, verify TCP handshake and app qualification
+      under the supervised lease and restoration of the INPUT baseline;
+      the run then failed at FS acquisition, before any language setter.
+      `BOOT FAILED 58` and the later FS failure each spent their own START.
+- [ ] Recover the later exact-owned 51-node SAVE tree on a *separate* boot,
+      then independently verify commit, fresh SAVE absence and release.
 - [x] Recover exact eiadiX 51-node SAVE scratch on an independently new boot;
       validated all entries, nonrecursive deletion, commit and fresh-clone absence.
       Future-run raw-bound planner/cleanup core/adapter and a runnable

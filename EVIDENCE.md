@@ -90,5 +90,12 @@ journal and exact-owned SAVE library for nonrecursive cleanup, commit and fresh
 clone absence. Synthetic host tests pass; the new generic entry has not itself
 been run on the console. It refuses other failure shapes. Its operator-supplied
 boot ID is not independent proof of a new OS boot or Direct scene.
+On the owner's Linux host, the supervised exact-peer firewall lease was
+exercised with a real forward START: TCP connected and application map, mount
+inspection and qualification completed. FS acquisition then failed before
+the language setter. The failure left a source-owned 51-node SAVE tree pending
+separate-boot cleanup; the host firewall returned to its original INPUT rules.
+This proves the supervised connection path, **not** a Korean language change
+or live acceptance of the new generic recovery command.
 The integrated English/restore wrapper is distributed here as experimental
 source; the observations above identify the earlier console stages precisely.
