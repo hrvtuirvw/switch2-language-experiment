@@ -43,6 +43,8 @@ async function verified(priorRun,runs=path.resolve(__dirname,'../runs')){
  const report=JSON.parse(await fs.readFile(reportFile));
  check(report.verified===true&&report.cleanupOnly===true&&
   report.fsAcquisitionAttempted===false&&report.languageWriteAttempted===false&&
+  report.stages?.length===3&&report.stages.every((s,i)=>s.status==='complete'&&
+   s.name===['app/map','app/inspect-mounts','exact-owned SAVE recovery and fresh clone'][i])&&
   report.priorRun===priorRun&&report.cleanup?.rawSha256===boot.rawSha256&&
   report.cleanup?.removed===51&&report.cleanup?.commitAcknowledged===true&&
   report.cleanup?.freshSaveAbsenceVerified===true&&report.cleanup?.sessionReleased===true,

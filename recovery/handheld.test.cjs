@@ -66,7 +66,9 @@ test('complete exact cleanup journal unlocks the next boot; tampering refuses',a
   resultSha256:digest(await fs.readFile(path.join(runs,run,'result.json'))),
   pipelineSha256:digest(await fs.readFile(path.join(runs,run,'switch2/pipeline.json')))}));
  await fs.writeFile(reportFile,JSON.stringify({verified:true,cleanupOnly:true,fsAcquisitionAttempted:false,
-  languageWriteAttempted:false,priorRun:run,cleanup:clean}));
+  languageWriteAttempted:false,priorRun:run,cleanup:clean,
+  stages:['app/map','app/inspect-mounts','exact-owned SAVE recovery and fresh clone']
+   .map(name=>({name,status:'complete'}))}));
  await fs.writeFile(path.join(dir,'result.json'),JSON.stringify({verified:true,cleanupOnly:true,
   languageWriteAttempted:false,priorRun:run,rawSha256,sourceSha256,bootId:'fresh-boot-123456',
   cleanup:clean,pipelineReport:reportFile}));
