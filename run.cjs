@@ -10,6 +10,7 @@ const readline = require('node:readline');
 const {pairingCode, listen} = require('./engine/lib/connection.cjs');
 const {byCode} = require('./engine/switch2/ro/language-codes.cjs');
 const {chooseLanguage} = require('./language-dialog.cjs');
+const {verify: verifyFirewall} = require('./lan-firewall.cjs');
 const {NativeClient} = require('./engine/lib/native.cjs');
 const {qualify} = require('./engine/lib/qualify.cjs');
 const {serve} = require('./engine/lib/bridge.cjs');
@@ -89,7 +90,7 @@ function connectCommand(host, token) {
 }
 
 async function sourceDigest() {
-  const names = ['run.cjs', 'boot-journal.cjs', 'enable-english.cjs',
+  const names = ['run.cjs', 'boot-journal.cjs', 'lan-firewall.cjs', 'lan-listener.py', 'enable-english.cjs',
     'set-language.cjs', 'restore-japanese.cjs', 'language-dialog.cjs', 'bootstrap.bas'];
   async function walk(folder) {
     for (const entry of await fs.readdir(path.join(__dirname, folder), {withFileTypes: true})) {
@@ -225,6 +226,9 @@ async function main(args = process.argv.slice(2), {pickLanguage = chooseLanguage
   const selected = byCode(target.code); // Never trust a dialog provider as a firmware mapping.
   const boot = createBootRecord(bootId, mode, selected.code);
   const host = await chooseHost(positional);
+  // This host's nft INPUT policy drops unsolicited console connections. Refuse
+  // before consuming a boot unless the temporary exact-peer rule is verified.
+  await verifyFirewall({host,peer:process.env.NS2_SWITCH_PEER});
   // The supplied ID is a journal key, not proof of boot preparation or START usage.
   const currentBoot = {bootId: boot.bootId, savedNs2Prepared: null,
     receiptStartSent: null, operatorAttested: false, independentlyVerified: false};

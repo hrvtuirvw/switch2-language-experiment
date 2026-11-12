@@ -6,16 +6,16 @@ Switch 2 の `set` / `set:sys` を使って、本体の言語設定を書き換�
 
 ## 実行
 
-Node.js 22以降が必要。言語をダイアログから選ぶ場合は Zenity も必要。
+Node.js 22以降が必要。言語をダイアログから選ぶ場合は Zenity も必要。LinuxでINPUTを遮断する環境ではPython 3・`sudo -n nft`を使い、本体のLANアドレスに限定した一時許可を付けて起動する。
 
 ```sh
-node set-language.cjs --boot-id boot-20261112-01                  # 言語を選ぶ
-node set-language.cjs --language ko --boot-id boot-20261112-01    # 韓国語に変更
-node enable-english.cjs --boot-id boot-20261112-01                # 英語に変更
-node restore-japanese.cjs --boot-id boot-20261112-01              # 日本語に戻す
+python3 lan-listener.py --peer-ip SWITCH_IP --host-ip PC_IP -- node set-language.cjs --boot-id boot-20261112-02 PC_IP                  # 言語を選ぶ
+python3 lan-listener.py --peer-ip SWITCH_IP --host-ip PC_IP -- node set-language.cjs --language ko --boot-id boot-20261112-02 PC_IP    # 韓国語に変更
+python3 lan-listener.py --peer-ip SWITCH_IP --host-ip PC_IP -- node enable-english.cjs --boot-id boot-20261112-02 PC_IP                # 英語に変更
+python3 lan-listener.py --peer-ip SWITCH_IP --host-ip PC_IP -- node restore-japanese.cjs --boot-id boot-20261112-02 PC_IP              # 日本語に戻す
 ```
 
-PCのLAN側IPv4アドレスは自動で選ぶ。候補が複数ある場合はターミナルで番号を選ぶ。手動指定するならコマンド末尾にIPv4アドレスを付ける。
+`SWITCH_IP` は本体、`PC_IP` は本体と同じLANにあるPC側のIPv4に置き換える。コマンドは本体にSTARTを送らない。一時許可はこのpeer→PCのTCP 39380だけで、待受の終了時に元へ戻す。待受前の許可・権限・LAN経路検証に失敗した場合は、起動IDを消費せずに止まる。実際のTCP接続成功までは保証しない。`BOOT FAILED 58` はTCP接続失敗なので、その起動でSTARTを再送しない。`runs/` の原本を保管し、別の完全OS起動で原因を直してから新しいIDを使う。Linuxで一時許可なしの直接実行は、START前に拒否する。
 
 上の4行は別々の実行例。同じ完全OS起動では**どれか1回だけ**使い、起動ごとに `--boot-id` を新しい値（英数字・`_`・`-` の16〜64文字）にする。使用済みIDは記録され、同じIDでの再実行は止まる。JSONファイルは不要。起動の新しさやSAVE内の残留物は自動判定しないので、START未使用と作業ファイルの有無を実行前に確認する。言語選択のキャンセルや不正な指定は、待受開始・起動ID消費前に止まる。
 
@@ -72,7 +72,7 @@ PCのLAN側IPv4アドレスは自動で選ぶ。候補が複数ある場合は�
 4. PCのターミナルで次を実行する。`SWITCH_IP` は本体のLAN側IPv4、`--boot-id` は**回収専用の新しい起動ID**。PCのLANアドレスが複数ある場合は末尾に `--host-ip PC_IP` を付ける。
 
    ```sh
-   node recovery/recover-owned-save.cjs --run --boot-id recovery-boot-20261112-01 --peer-ip SWITCH_IP
+   python3 lan-listener.py --peer-ip SWITCH_IP --host-ip PC_IP -- node recovery/recover-owned-save.cjs --run --boot-id recovery-boot-20261112-02 --peer-ip SWITCH_IP --host-ip PC_IP
    ```
 
 5. 表示された新しい `V=START(...)` 1行をSmileBASICに入力して内容を確認し、Enterを**1回だけ**押す。このコマンドは本体へのキー入力を代行しない。`OWNED_SAVE_RECOVERY_VERIFIED` と51件の削除・commit・新しいSAVE参照での不在・セッション解放が出たときだけ回収完了。失敗・中断・応答なしなら `runs/` と `recovery-runs/` を保存し、同じ起動でSTARTや回収コマンドを再実行しない。次の言語変更には、さらに**別の完全OS起動**と新しいIDが必要。
@@ -87,7 +87,7 @@ PCのLAN側IPv4アドレスは自動で選ぶ。候補が複数ある場合は�
 
 ```sh
 node run.cjs --check-only  # 本体に接続せずにチェック（ダイアログ・START送信なし）
-node --test boot-journal.test.cjs host-network.test.cjs language-dialog.test.cjs recovery/*.test.cjs $(find engine -name '*.test.cjs' | sort)
+node --test boot-journal.test.cjs host-network.test.cjs lan-firewall.test.cjs language-dialog.test.cjs recovery/*.test.cjs $(find engine -name '*.test.cjs' | sort)
 ```
 
 元コード：[`pepsipu/ns2jb`（95f5525）](https://github.com/pepsipu/ns2jb/commit/95f5525089273c5fce0b95047f3600f8442e96ae) / [THIRD-PARTY.md](THIRD-PARTY.md)

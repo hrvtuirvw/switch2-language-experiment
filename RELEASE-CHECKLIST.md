@@ -16,6 +16,12 @@
 - [x] Confirm historical Japan/`ja` restoration in multiple real readbacks;
       match the new reverse stage's Japanese-first setter order.
 - [x] Run the current complete host suite and source-only preflight.
+- [x] Refuse a bare Linux INPUT-drop listener before boot consumption; provide
+      a supervised exact-peer temporary TCP 39380 allowance, verify its live
+      nft rule from the Node launcher, and restore the original INPUT handles
+      after a no-START lease smoke and a failed pre-admission child.
+- [ ] Recheck a future genuinely new console boot and first TCP handshake
+      under the supervised lease; `BOOT FAILED 58` spent the earlier START.
 - [x] Recover exact eiadiX 51-node SAVE scratch on an independently new boot;
       validated all entries, nonrecursive deletion, commit and fresh-clone absence.
       Future-run raw-bound planner/cleanup core/adapter and a runnable

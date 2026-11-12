@@ -1,6 +1,7 @@
 # Generated run receipts can contain console addresses, tokens and raw memory.
 /runs/
 /recovery-runs/
+/firewall-leases/
 /dumps/
 /connection.json
 /connect.txt
