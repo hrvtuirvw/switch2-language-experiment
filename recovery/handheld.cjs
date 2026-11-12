@@ -75,6 +75,13 @@ function options(args){
  createBootRecord(bootId,'restore','ja');
  return {run,bootId,peer,host};
 }
+async function unchangedOriginal(o){
+ const [raw,result,report]=await Promise.all([
+  fs.readFile(o.rawFile),fs.readFile(path.join(o.run,'result.json')),
+  fs.readFile(path.join(o.run,'switch2/pipeline.json'))]);
+ return hash(raw)===o.rawSha256&&hash(result)===o.resultSha256&&
+  hash(report)===o.pipelineSha256;
+}
 async function main(args=process.argv.slice(2),deps={}){
  const opts=options(args);await checkCleanupSources();
  const pending=await inspectRuns(deps.runsRoot);
@@ -91,6 +98,7 @@ async function main(args=process.argv.slice(2),deps={}){
  const host=await (deps.chooseHost||chooseHost)(opts.host?[opts.host]:[]);
  // Recheck source and raw immediately before one-use admission.
  check((await inspectRuns(deps.runsRoot))[0]?.rawSha256===original.rawSha256&&
+  await unchangedOriginal(original)&&
   await sourceDigest()===digest,'source or prior run changed before cleanup');
  await fs.mkdir(workspace,{recursive:true,mode:0o700});
  const state=await fs.lstat(workspace);check(state.isDirectory()&&!state.isSymbolicLink(),'linked recovery runs');
@@ -130,7 +138,8 @@ async function main(args=process.argv.slice(2),deps={}){
     operatorAttestedFreshOsBoot:true,rebootVerified:false,sceneIndependentlyVerified:false,
     startUnusedAsOfPrep:true,liveSceneVerified:false}),
    liveWitness:async p=>p.bootProofSha256===bootProofSha256&&
-    (await sourceDigest())===digest&&connected.connection.socket.remoteAddress===remote});
+    await unchangedOriginal(original)&&(await sourceDigest())===digest&&
+    connected.connection.socket.remoteAddress===remote});
   check(receipt.verified===true&&receipt.cleanup?.removed===51&&
    receipt.cleanup.commitAcknowledged&&receipt.cleanup.freshSaveAbsenceVerified&&
    receipt.cleanup.sessionReleased,'cleanup receipt incomplete');

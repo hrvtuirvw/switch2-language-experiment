@@ -31,6 +31,9 @@ test('one exact pre-language owned tree is selected; no console or journal in ch
  const pending=await inspectRuns(runs);assert.equal(pending.length,1);assert.equal(pending[0].priorRun,run);
  assert.equal(pending[0].priorBootId,'old-boot-123456789');
  assert.deepEqual(await main(['--check-only'],{runsRoot:runs}),{pending:true});
+ if(!process.stdin.isTTY)
+  await assert.rejects(main(['--run','--boot-id','fresh-boot-123456','--peer-ip','192.168.56.21'],
+   {runsRoot:runs}),/run interactively/);
 }));
 test('wrong raw ownership, post-FS stage or multiple pending trees refuse',async()=>fixture(async({runs,rawFile,raw})=>{
  await fs.writeFile(rawFile,JSON.stringify({...raw,createdNodes:[]}));
