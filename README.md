@@ -1,76 +1,54 @@
-# Switch 2 mutable language experiment — all-in-one source prerelease
+# Switch 2 multilingual settings — experimental all-in-one source
 
-This experimental all-in-one source tree is based on the **actual console trial** configuration, not a patch on pristine upstream. The console read back region 1 / `en-US` and showed English System Settings; separate runs read back the restored Japanese settings. The integrated launcher adds a mixed-state restore branch and per-boot admission logic. The upstream-derived source is attributed to `pepsipu/ns2jb` commit `95f5525089273c5fce0b95047f3600f8442e96ae`; see [THIRD-PARTY.md](THIRD-PARTY.md) for provenance. Read [EVIDENCE.md](EVIDENCE.md) for individual run results. [LANGUAGES.md](LANGUAGES.md) distinguishes the reference Switch 2 conversion indices (18 unique codes) from the older 20-slot compatibility table, host-only coverage, and target-bound command syntax.
+Switch 2の可変な地域・言語設定を扱う、全部入りソースの実験版。英語設定、17言語からの選択、日本語への復元を一つのソースツリーにまとめています。固定の家庭内IPは含めず、実行PCのLANアドレスを選びます。Zenityの選択ダイアログ、または `--language` 引数で言語を指定できます。
 
-## What the scripts change
+この本体で `set` の `MakeLanguageCode(0..19)` を読取り、20件すべてのコードと8バイト応答が参照Switch 2設定NSOの**変換表**と一致しました。以前の別試行では地域1／`en-US` の読戻しと英語の本体設定画面、日本語の設定値への復元を確認しています。これらはそれぞれの実機記録であり、選択ダイアログを含む今回の統合版を実行した記録とは分けて [EVIDENCE.md](EVIDENCE.md) にまとめています。
 
-The scripts target **mutable system settings**, not hardware region identity, calibration/PRODINFO, account country, firmware, or network/DNS settings. The source-bound FS-context bridge obtains the authorized `set` getter and `set:sys` setter. Commands and payloads:
+## 言語コード / Language codes
 
-| Purpose | Service, command | Payload/readback |
-|---|---|---|
-| Read LanguageCode | `set`, `0` | 8-byte NUL-terminated language code, canonicalized before writing |
-| Read RegionCode | `set`, `4` | little-endian 32-bit enum |
-| Verify firmware language mapping | `set`, `2` | enum `0` → `ja\0`; check this boot's reply against the reference conversion index. On mismatch, scan bounded unique indices `0`–`17` read-only and require exactly one match before opening a setter. Reference slots `18`/`19` repeat `ja`/`en-US`, not extra targets |
-| Set LanguageCode | `set:sys`, `0` | canonical, NUL-terminated 8 bytes from a firmware-checked supported code; rollback uses exact canonical original |
-| Set RegionCode | `set:sys`, `57` | little-endian `00000000` (Japan) or `01000000` (American region) |
+| 番号 | コード | 言語 |
+|---:|---|---|
+| 0 | `ja` | 日本語（復元先） / Japanese |
+| 1 | `en-US` | 米語 / US English |
+| 2 | `fr` | フランス語 / French |
+| 3 | `de` | ドイツ語 / German |
+| 4 | `it` | イタリア語 / Italian |
+| 5 | `es` | スペイン語 / Spanish |
+| 6 | `ko` | 韓国語 / Korean |
+| 7 | `nl` | オランダ語 / Dutch |
+| 8 | `pt` | ポルトガル語 / Portuguese |
+| 9 | `ru` | ロシア語 / Russian |
+| 10 | `en-GB` | 英語（英国） / UK English |
+| 11 | `fr-CA` | フランス語（カナダ） / Canadian French |
+| 12 | `es-419` | スペイン語（中南米） / Latin American Spanish |
+| 13 | `zh-Hans` | 中国語（簡体） / Simplified Chinese |
+| 14 | `zh-Hant` | 中国語（繁体） / Traditional Chinese |
+| 15 | `pt-BR` | ポルトガル語（ブラジル） / Brazilian Portuguese |
+| 16 | `pl` | ポーランド語 / Polish |
+| 17 | `th` | タイ語 / Thai |
 
-`english` / `set-language` (the legacy internal mode name): requires region `0`, language `ja`; checks a same-value region write first; writes region `1`, reads it back, then writes the selected, firmware-matched language code and reads it back. `restore`: requires stable region `1` with a documented language or `ja`, checks a same-value region `1` write first, writes `ja` only if needed, then writes region `0` and reads back region `0`/`ja`. The Japanese-first `en-US` path matches two earlier console round trips; the branch for the observed post-reboot mixed `1`/`ja` state passes host tests. A setter's possible admission is journaled **before** dispatch; ambiguous results are not retried. Failure after a target write attempts one rollback to the original values and reports uncertainty if rollback cannot be verified. Both operations intentionally keep the target after successful readback. Neither claims an English/Japanese HOME screen without separate imagery.
+`ja` は復元先、残る17コードが変更先です。番号18/19はそれぞれ `ja`/`en-US` の重複で、選択肢には入れません。別の旧互換表の番号を混ぜないでください（そちらの7は `ko`）。実行時にも、その起動の `MakeLanguageCode` 応答を確認し、番号が違えば0〜17を読取り、一意に対応する場合だけ書込みに進みます。対象タイトルの表示言語は、そのタイトルの翻訳資源にも依存します。変換表と実機での読取りの詳細は [LANGUAGES.md](LANGUAGES.md)。
 
-One real Korean preflight reached FS and observed `MakeLanguageCode(7) = nl`, not `ko`. It correctly stopped before the Korean setter. A SHA-verified reference Switch 2 settings NSO has a *conversion* table with index 6=`ko`, 7=`nl`, 16=`pl`, 17=`th`; its separate *compatibility* table has index 7=`ko`, 18=`pl`, 19=`th`. The distributed numeric candidates follow the conversion table. On a separately witnessed boot, an application-only read-only `set` census returned all indices 0–19, and **each live code/payload matched**, including 6=`ko` and duplicate 18/19; see [EVIDENCE.md](EVIDENCE.md). The unit's NSO binary identity has not been independently attested; same-boot checks and the host-tested bounded fallback remain mandatory. The release **does not** claim a Korean setter/readback, screen change, or reboot persistence.
+## 使い方 / Commands
 
-## Where the integration sits
+Node.js 22以降。ソースだけの検査は `node run.cjs --check-only`（本体への接続・選択ダイアログ・START送信なし）。
 
-- `bootstrap.bas`: the exact trial SmileBASIC 4.4.9 bootstrap with pointer/hash/CRC checks and FW-specific function offsets. It does not contain an account, console key or device identifier. A *different* firmware or SmileBASIC build is not supported by swapping a single arbitrary offset. FS acquisition is behavior-sensitive and also verifies hard SDK-relative code offsets (for example `memory/probe-reserved-gap.cjs` checks a memcpy at `sdk + 0x586fb0`). The later `ro/layout.cjs` can search a **nearby vtable candidate**, but still requires a unique exact structural match. The bundled `ro/files.cjs` also has a fixed `main.npdm` hash guard for a separate donor-prepare feature; **this language-only pipeline does not call donor-prepare**, so that hash is not its late-stage compatibility gate. None of these checks proves support for firmware 20.1.1 or another build.
-- `engine/lib/` and `engine/shared/`: the upstream-derived host bridge, protocol and SDK reference data.
-- `engine/switch2/app/`, `memory/`, `retained/`, `ro/`, and `process/`: the **actual successful trial's modified acquisition, retention, FS memory IPC, and native payload tree**. Do not replace these with pristine upstream files. The original executed acquisition and setting-file SHA-256 digests are recorded in [EVIDENCE.md](EVIDENCE.md); the generalized locale stage is **not byte-identical** to the earlier console-executed English stage.
-- `engine/switch2/ro/region-same-value.cjs`: one candidate change selects region `0` or `1` for the same-value prerequisite according to the requested mode. `region-language-roundtrip.cjs` derives from the successful English setting stage but is now generalized for firmware-matched target codes. `region-language-restore.cjs` is the reverse stage, including host-tested mixed-state and supported-language branches.
-- `engine/switch2/pipeline.cjs`: one candidate change chooses the English or reverse stage, while leaving the acquisition and retirement sequence in place. `run.cjs` selects a local-network host IP dynamically and checks the local source tree; `language-dialog.cjs` offers a host-only Zenity picker when `set-language.cjs` has no `--language`. `admission.cjs` records one attempt per claimed OS boot and binds an explicit non-English target. The packaged host scripts no longer depend on the owner's private boot-pins file. **Operator confirmations are not independent console telemetry.**
-- `engine/switch2/ro/english-active-home.cjs` and `english-active-capture.cjs` are fail-closed compatibility placeholders: the original English stage imports the former as an unused default argument. Historical absolute HDMI paths and HOME routes have been removed; neither helper sends input or captures an image. An independent, current-scene observation is still required.
+```sh
+node set-language.cjs --admission admission.json                 # Zenityで選択 / dialog
+node set-language.cjs --language ko --admission admission.json   # 引数で指定 / argument
+node enable-english.cjs --admission admission.json               # 米語 / US English
+node restore-japanese.cjs --admission admission.json             # 日本語へ復元 / restore
+```
 
-`recovery/` now includes the source-only, host-tested **future-run SAVE scratch** planner, exact-tree/file-byte validator, nonrecursive cleanup core and mounted-SAVE adapter. They bind an actual run's raw SHA to the pinned producer SHA, reject foreign children, and journal each possible removal before dispatch. **There is no console recovery CLI or live boot/peer/lease binding in this package.** Calling these libraries or seeing an acknowledged commit does *not* establish fresh SAVE clone absence; the result reports it false until independently checked. Do not invoke them manually against a live console or reuse an old run's raw receipt. This narrows an engineering gap but does not clear the live cleanup/release gate.
+必要なら各コマンド末尾に実行PCの有効なLAN IPv4を指定できます。省略時はローカルのRFC1918 IPv4から選択し、複数あるときは尋ねます。Zenityの取消・GUI不足・タイムアウトや指定コードとadmissionの不一致は、起動IDの消費・listener開始前に停止します。非英語のadmissionには選択コードと同じ `language` を入れます。`bootId`、`mode`（変更=`english`、復元=`restore`）に加え、`confirmedFreshOsBoot`、`confirmedNoPendingOwnedScratch`、`confirmedSavedNs2`、`confirmedStartUnused` の4項目を `true` にします。これらはオペレーターの申告欄なので、実際の起動・画面・SAVE状態を別に確認してください。
 
-Read [EVIDENCE.md](EVIDENCE.md) for run-level versus setting-level proof, [THIRD-PARTY.md](THIRD-PARTY.md) for provenance, and [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md) for remaining gates.
+**本体の完全OS起動ごとにSTARTは1回。** 応答不明のSTARTは再送しません。失敗して所有SAVE scratchが残った場合、該当runのraw・全ファイル内容を照合し、**別の完全起動**で所有物だけを非再帰で回収してください。`recovery/` は検査・回収のライブラリで、汎用の実機清掃コマンドではありません。runログや接続トークンを公開Issueへ貼らないでください。本体の90DNS／オフライン設定を維持し、Nintendoオンライン・本体更新・工場出荷情報・PRODINFO・シリアル・鍵・DNSの変更は行いません。
 
-## Host-only preflight
+## 構成と観測範囲 / Source and observations
 
-With Node.js 22+ installed, `node run.cjs --check-only` hashes the candidate source tree and opens **no** dialog or console connection. Host test command: `node --test admission.test.cjs host-network.test.cjs language-dialog.test.cjs recovery/recovery.test.cjs $(find engine -name '*.test.cjs' | sort)`.
+- `bootstrap.bas` は本体FW 23.0.1／SmileBASIC 4.4.9で使った起動ソース。SDK相対オフセットとハッシュを検査します。異なるビルドへ任意の単一オフセットだけを流用しないでください。
+- `engine/` は実機試行で使った取得・保持・FSメモリ・設定段階に由来するソースと、言語選択・復元の分岐を含みます。`set` のgetterと変換コマンド、`set:sys` の可変言語・地域setterを扱います。成功判定は設定値の即時読戻しです。
+- 過去の実機観測は英語の本体設定画面、日本語への設定値復元、カービィ エアライダーの英語タイトル（同一起動）、全20番号の読取りです。再起動後の別の観測では地域1／`ja` が返りました。実行単位・結果の区別は [EVIDENCE.md](EVIDENCE.md) に記録しています。
+- 言語選択・起動分岐・復元と回収コアのホストテストは `node --test admission.test.cjs host-network.test.cjs language-dialog.test.cjs recovery/recovery.test.cjs $(find engine -name '*.test.cjs' | sort)` で実行できます。
 
-The provisional command shapes are `node enable-english.cjs --admission admission.json [computer-IP]`, `node set-language.cjs --admission admission.json [computer-IP]` (opens a Zenity language dialog), `node set-language.cjs --language fr --admission admission.json [computer-IP]` (skips the dialog), and `node restore-japanese.cjs --admission admission.json [computer-IP]` (see [LANGUAGES.md](LANGUAGES.md)). Zenity is optional when the language is supplied as an argument; cancellation, missing GUI or timeout stops **before** the boot receipt, token or listener. The optional computer IP must be an active local LAN IPv4; the script never embeds the owner's IP and prompts on a multi-interface host. These commands are experimental, not a one-click procedure for other consoles: safe operation requires independently verified boot, scene, and exact-owned SAVE recovery. The private recovery runner was bound to a specific historical run, not packaged as a general-user tool. An admission JSON contains `bootId`, `mode` (`english` for any selected non-Japanese language, or `restore`), optional `language` (required and equal to the non-English selection), and four `true` confirmations: `confirmedFreshOsBoot`, `confirmedNoPendingOwnedScratch`, `confirmedSavedNs2`, `confirmedStartUnused`. The launcher consumes the boot ID before opening a listener; it refuses unresolved prior runs, but it cannot prove that the human claims are true. Do not invent a fresh boot ID to retry on the same OS boot. A pending 51-node save scratch needs raw-bound, nonrecursive, exact-owned cleanup on a **distinct** boot; no prefix-wide deletion. Run logs can contain private console data; never upload them.
-
-## Evidence and remaining gates
-
-A separate owner-private module used an independently verified reboot, a one-use cleanup-only START, the exact-owned 51-node **same-SAVE** cleaner, commit and a fresh SAVE clone to prove absence. The private `switch2-XYz7IW` result and cleanup pipeline both report `verified:true`, `removed:51`, `freshSaveAbsenceVerified:true`, with source/run pins retained privately. This is not a general-user recovery tool. The older save-only cleaner assumes a different mount arrangement and remains unsafe for this run.
-
-**Japanese restoration of the mutable settings has been demonstrated:** the earlier real runs `switch2-USy2I1` and `switch2-UFdgPh` both wrote `ja` then region `0` and read back both original values; an interrupted `switch2-Cb2mZo` run also recorded `ABORT_RESTORED` with both readbacks. Those runs had separate pipeline/cleanup outcomes; their readbacks are setting-stage results. The successful English-setting trial (`switch2-eiadiX`) read back RegionCode `1` and LanguageCode `en-US`; an unedited image showed **English System Settings**. Its immediate HOME screen remained Japanese. After the owner-authorized terms confirmation and independently witnessed full reboot, both HOME and System Settings were visibly **Japanese**. On a *subsequent* independently witnessed full OS reboot, a separate app-only `set` getter probe read **RegionCode `1` and LanguageCode `ja` twice**, with no setter or FS acquisition (private receipt SHA-256 `e24a388152013d920380d26591f537ff558a2886ef6c6c23dea54071fbd44a39`). This proves that the English language code did not survive that observed reboot sequence, while the mutable region remained `1` at the later read. It does not isolate exactly which reboot reverted the language. The observed mixed state (`1`, `ja`) failed both original assembled modes. This revision adds a host-tested mixed-state restore branch. A later owner-operated run again read back region `1` / `en-US`, but its FS retirement failed. Its 51 owned SAVE nodes were subsequently removed in a distinct, verified cleanup-only boot; neither that cleanup nor the getter makes the original trial a full-run success. See EVIDENCE. The locale-generalized source paths have host tests, not further console UI proof. The observed version combination, not second-device compatibility, defines the evidence here. The original eiadiX result was `verified:false` despite its earlier setting readback; its owned scratch was subsequently cleared by the separate verified cleanup-only run. Host tests cover the new source logic; the separate console observations above establish the setting-stage outcomes. Keep the console offline/90DNS as configured; this candidate never requests Nintendo online access or modifies factory identity.
-
-For a general-use release, establish mixed (`1`, `ja`) recovery with rollback and new raw-bound exact-owned scratch cleanup, then check forward/reverse operations on separately witnessed boots and diagnose the language reset with getters. This experimental source prerelease documents the prior console setting results and the newly integrated source separately.
-
----
-
-## 日本語での説明
-
-### この配布物について
-
-参照Switch 2設定NSOの変換表にある異なる言語コード18種類（日本語復元1、変更先17）をホストの選択・起動中のファームウェア応答照合・読戻しまで実装しました。互換表だけにある旧コード `zh-CN`／`zh-TW` は誤った番号で書かないよう選択肢から除外しました。各言語の実機画面まで検証したわけではありません。対応コードと指定方法は [LANGUAGES.md](LANGUAGES.md) を参照。IPは実行PCのLANインターフェースから選び、固定値を配布しません。
-
-これはSwitch 2の**可変な本体設定の地域コードと言語コード**を調べるための、英語化・日本語復元コードを含む**全部入りソースの実験版**です。英語の説明と同じソースを指します。工場出荷時の地域情報、PRODINFO、シリアル番号、証明書、鍵、アカウントの国、DNS、本体更新を変更するものではありません。国内版のSKU制限解除や任天堂オンライン利用が可能になるとは主張しません。
-
-対象として観測した組み合わせは**本体FW 23.0.1／SmileBASIC 4.4.9**です。別の本体・ビルドでの動作保証はなく、オフライン／90DNSを保ってください。FS取得には挙動条件だけでなくSDK相対オフセットのコード照合があり、後段のRO配置探索も近傍の候補を構造検証する範囲だけです。`ro/files.cjs` の `main.npdm` 固定ハッシュは別機能のdonor-prepare用で、**この言語変更パイプラインでは呼びません**。FW 20.1.1への対応を意味しない点に注意してください。`bootstrap.bas`、取得・保持処理、native payload、`enable-english.cjs`／`restore-japanese.cjs` を同じソースツリーに収めています。上流由来コードは `pepsipu/ns2jb` のコミット `95f5525089273c5fce0b95047f3600f8442e96ae` に由来します。出典は [THIRD-PARTY.md](THIRD-PARTY.md) を参照してください。
-
-### 何を読み書きするか
-
-FS-contextのブリッジ経由で、`set` の `GetLanguageCode`（コマンド0）・`GetRegionCode`（4）と `MakeLanguageCode`（2）を確認し、`set:sys` の `SetLanguageCode`（0）・`SetRegionCode`（57）を使います。英語化は **地域0／`ja` → 地域1／`en-US`**、復元は **地域1／`en-US` または地域1／`ja` → 地域0／`ja`** を意図します。地域1／`en-US` の復元は先に言語を `ja` に戻し、次に地域を0にします。地域1／`ja` では不要な言語書込みを省きます。書込み前に一回限りの試行を記録し、応答が不明な書込みを推測で再送しません。成功判定はゲッターの読戻しであり、HOMEや再起動後の表示の保証ではありません。
-
-韓国語を狙った先の実機試行では番号7が `nl` と返り、韓国語の書込み前に安全停止しました。その後、別の新規起動でアプリ権限の `set` を使い、**番号0〜19を読取りのみで全件実測**。6=`ko`、7=`nl`、16=`pl`、17=`th`、18/19は `ja`／`en-US` の重複で、参照NSOの**変換表**と20/20一致しました。別の**互換表**の7=`ko`、18=`pl`、19=`th` は使いません。実機NSOバイナリの同一性や別本体の対応は未証明のため、変更時の同一起動での応答照合と番号不一致時の0〜17の一意検索も残します。復元も同様。**韓国語の書込み・読戻し・画面表示・再起動後の保持は未確認**です。
-
-### 実機で確認した結果
-
-以前の実機試行 `switch2-eiadiX` では地域1／`en-US` を読戻し、英語の**本体設定**を画面で確認しました。ただし直後のHOMEは日本語でした。`switch2-USy2I1` と `switch2-UFdgPh` の設定段階では `ja` → 地域0の順に書き戻し、両値を読戻しました。別の清掃専用実行では以前のSAVE scratch 51件を所有範囲に限定して削除・commitし、新しいSAVE cloneから不存在を確認しています。後の英語ゲッター到達試行でも、失敗後の別起動でその試行が所有する51件を回収・commitし、新しいSAVE cloneから不存在とsession解放を確認しました。これらは**実機の結果**ですが、多言語版の統合実行成功ではありません。
-
-別の再起動後の読取り専用観測では地域1／`ja`を2回確認しました。つまりこの観測で英語表示の再起動後持続は示されていません。今回の**新しい統合起動スクリプト**には、この混在状態からの復元分岐とホスト側の安全確認を追加しています。過去の各試行の51件の清掃を、今後発生するscratchの清掃済み証拠として流用しないでください。試行ごとの結果と配布ソースの関係は [EVIDENCE.md](EVIDENCE.md) に記録しています。
-
-### 事前確認と安全上の制限
-
-Node.js 22以降で `node run.cjs --check-only` を実行すると、ダイアログを出さずソースを検査するだけで本体に接続せず、STARTも送信しません。`node set-language.cjs --admission admission.json` ならZenityで17言語の変更先を選択し、`--language ko` のように指定するとダイアログを省略できます。日本語への復元は `node restore-japanese.cjs --admission admission.json`、従来の米語固定は `node enable-english.cjs --admission admission.json` です。選択のキャンセル・GUI不足・タイムアウトは起動IDの消費やlistener開始前に停止します。ただし選んだコードとadmission JSONの `language` は一致させる必要があります。ホストテストは `node --test admission.test.cjs host-network.test.cjs language-dialog.test.cjs recovery/recovery.test.cjs $(find engine -name '*.test.cjs' | sort)` です。新しい分岐・起動判定・復旧ロジックのソース検査です。
-
-本体操作では完全なOS起動ごとにSTARTは一度だけです。使ったか不明なSTARTや入力を再送しないでください。`admission.json` の自己申告は独立した起動・画面・接続先の証明ではありません。現時点では、新しい実行のSAVE scratchについて `recovery/` に所有rawへ拘束する検査・削除コアはありますが、一般ユーザー向けの実機清掃コマンド、別起動の照合、新しいSAVE cloneでの不存在確認は揃っていません。これは実験用ソースの配布で、他の本体向けのワンクリック操作手順ではありません。失敗時は実行フォルダーを保全し、未知のSAVEファイルを消さず、ログ・接続token・端末固有情報を公開Issueへ貼らないでください。
+このソースは `pepsipu/ns2jb` コミット `95f5525089273c5fce0b95047f3600f8442e96ae` を基に変更しています。出典は [THIRD-PARTY.md](THIRD-PARTY.md)、試行ごとの証拠は [EVIDENCE.md](EVIDENCE.md) を参照してください。It changes mutable settings, not the console's hardware region/SKU, account country, or title-local translation resources.

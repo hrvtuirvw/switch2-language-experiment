@@ -3,8 +3,8 @@
 // conversion table at module VA 0xa945a. This is NOT its separate legacy
 // compatibility table at 0xa94ea (where 6=zh-CN, 7=ko, 11=zh-TW).
 // Conversion slots 18/19 repeat ja/en-US; they are not additional targets.
-// The live unit has confirmed only index 7=nl and 0=ja, so every candidate
-// still requires a same-boot MakeLanguageCode check before any setter.
+// A separate read-only console census matched indices 0..19 on the owner unit.
+// Every write still requires a same-boot MakeLanguageCode check before setter.
 const CODES = Object.freeze([
   'ja', 'en-US', 'fr', 'de', 'it', 'es', 'ko', 'nl', 'pt', 'ru',
   'en-GB', 'fr-CA', 'es-419', 'zh-Hans', 'zh-Hant', 'pt-BR', 'pl', 'th'
