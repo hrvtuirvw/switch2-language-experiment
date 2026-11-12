@@ -9,7 +9,7 @@
       the owner console: every code/payload matches the conversion table,
       including live 6=`ko`, 7=`nl`, 16=`pl`, 17=`th`, duplicates 18/19.
       Require a firmware-matched mapping before target write, bind non-English
-      admission to its code, document mutable IPC limits and remove owner-local
+      selected target to the boot receipt, document mutable IPC limits and remove owner-local
       IP/UI helper paths. Add an optional host-only Zenity selection dialog to
       set-language.cjs, with --language bypass and cancel/missing-GUI refusal
       before boot consumption. Locale paths other than English are host-mock only.

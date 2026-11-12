@@ -32,59 +32,58 @@ test('cancel, unavailable, timeout, empty, ja and malformed choices fail closed'
  for(const stdout of ['', 'ja\n', 'KO\n', 'en-US\nfr\n','zh-CN\n','zh-TW\n','never-heard-of'])
   await assert.rejects(chooseLanguage(async()=>({stdout})),/invalid choice/);
 });
-test('main chooses before admission/boot; explicit language, restore and check-only bypass UI',async()=>{
+test('main chooses before boot consumption; explicit language, restore and check-only bypass UI',async()=>{
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'ns2-dialog-test-'));
  try {
   const bootId='dialog-test-'+Math.random().toString(36).slice(2).padEnd(18,'a');
-  const file=path.join(dir,'admission.json');
-  const base={bootId,mode:'english'};
   const bootReceipt=path.join(__dirname,'runs','boot-'+bootId+'.json');
   const missing=()=>fs.stat(bootReceipt).then(()=>false,error=>error.code==='ENOENT');
   assert.equal(await missing(),true);
   let calls=0;
   const cancel=async()=>{calls++;throw Error('dialog cancelled')};
-  await assert.rejects(main(['--mode','english','--admission',file],{pickLanguage:cancel}),/dialog cancelled/);
+  await assert.rejects(main(['--mode','english','--boot-id',bootId],{pickLanguage:cancel}),/dialog cancelled/);
   assert.equal(calls,1);assert.equal(await missing(),true);
-  await fs.writeFile(file,JSON.stringify(base));
-  await assert.rejects(main(['--mode','english','--language','ko','--admission',file],
-    {pickLanguage:cancel}),/language target mismatch/);
+  await assert.rejects(main(['--mode','english','--language','ko','--boot-id','short'],
+    {pickLanguage:cancel}),/boot ID/);
   assert.equal(calls,1);assert.equal(await missing(),true);
   for(const legacy of ['zh-CN','zh-TW']){
-    await assert.rejects(main(['--mode','english','--language',legacy,'--admission',file],
+    await assert.rejects(main(['--mode','english','--language',legacy,'--boot-id',bootId],
       {pickLanguage:cancel}),/Unsupported language code/);
     assert.equal(await missing(),true);
   }
-  await fs.writeFile(file,JSON.stringify({...base,language:'ko'}));
-  await assert.rejects(main(['--mode','english','--admission',file,'198.51.100.23'],
+  await assert.rejects(main(['--mode','english','--boot-id',bootId,'198.51.100.23'],
     {pickLanguage:async()=>{calls++;return byCode('ko')}}),/not an active local LAN address/);
   assert.equal(calls,2);assert.equal(await missing(),true);
-  await assert.rejects(main(['--mode','english','--language','ko','--admission',file,'198.51.100.23'],
+  await assert.rejects(main(['--mode','english','--language','ko','--boot-id',bootId,'198.51.100.23'],
     {pickLanguage:cancel}),/not an active local LAN address/);
   assert.equal(calls,2);assert.equal(await missing(),true);
-  await assert.rejects(main(['--mode','restore','--admission',file],{pickLanguage:cancel}),/mode mismatch/);
+  await assert.rejects(main(['--mode','restore','--language','ko','--boot-id',bootId],
+    {pickLanguage:cancel}),/Restore does not accept/);
+  await assert.rejects(main(['--mode','restore','--admission','legacy.json','--boot-id',bootId],
+    {pickLanguage:cancel}),/Provide --mode and --boot-id/);
   assert.equal(calls,2);assert.equal(await missing(),true);
   const check=await main(['--check-only'],{pickLanguage:cancel});
   assert.equal(check.checkedOnly,true);assert.equal(calls,2);assert.equal(await missing(),true);
  } finally {await fs.rm(dir,{recursive:true,force:true})}
 });
-test('real CLI wrappers: dialog cancel precedes admission; argument, English alias and restore bypass dialog',async()=>{
+test('real CLI wrappers: dialog cancel precedes boot receipt; argument, English alias and restore bypass dialog',async()=>{
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'ns2-dialog-cli-'));
  try {
   const marker=path.join(dir,'dialog-called');
   const executable=path.join(dir,'zenity');
   await fs.writeFile(executable,'#!/bin/sh\nprintf called > "$DIALOG_TEST_MARKER"\nexit 1\n',{mode:0o700});
   const env={...process.env,PATH:dir+path.delimiter+process.env.PATH,DIALOG_TEST_MARKER:marker};
-  const admission=path.join(dir,'missing-admission.json');
+  const bootId='new-os-boot-123456';
   const cli=(file,args)=>invoke(process.execPath,[path.join(__dirname,file),...args],
     {cwd:__dirname,env,timeout:15000});
-  await assert.rejects(cli('set-language.cjs',['--admission',admission]),
+  await assert.rejects(cli('set-language.cjs',['--boot-id',bootId]),
     error=>/selection cancelled, unavailable or timed out/.test(error.stderr));
   assert.equal(await fs.readFile(marker,'utf8'),'called');
   await fs.unlink(marker);
   for(const [file,args] of [
-    ['set-language.cjs',['--language','ko','--admission',admission]],
-    ['enable-english.cjs',['--admission',admission]],
-    ['restore-japanese.cjs',['--admission',admission]]]) {
+    ['set-language.cjs',['--language','ko','--boot-id',bootId,'198.51.100.23']],
+    ['enable-english.cjs',['--boot-id',bootId,'198.51.100.23']],
+    ['restore-japanese.cjs',['--boot-id',bootId,'198.51.100.23']]]) {
     await assert.rejects(cli(file,args),error=>!error.stderr.includes('selection cancelled'));
     await assert.rejects(fs.stat(marker),{code:'ENOENT'});
   }

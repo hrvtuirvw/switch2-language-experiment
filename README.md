@@ -9,15 +9,15 @@ Switch 2 の `set` / `set:sys` を使って、本体の言語設定を書き換�
 Node.js 22以降が必要。言語をダイアログから選ぶ場合は Zenity も必要。
 
 ```sh
-node set-language.cjs --admission admission.json                  # 言語を選ぶ
-node set-language.cjs --language ko --admission admission.json    # 韓国語に変更
-node enable-english.cjs --admission admission.json                # 英語に変更
-node restore-japanese.cjs --admission admission.json              # 日本語に戻す
+node set-language.cjs --boot-id boot-20261112-01                  # 言語を選ぶ
+node set-language.cjs --language ko --boot-id boot-20261112-01    # 韓国語に変更
+node enable-english.cjs --boot-id boot-20261112-01                # 英語に変更
+node restore-japanese.cjs --boot-id boot-20261112-01              # 日本語に戻す
 ```
 
 PCのLAN側IPv4アドレスは自動で選ぶ。候補が複数ある場合はターミナルで番号を選ぶ。手動指定するならコマンド末尾にIPv4アドレスを付ける。
 
-`admission.json` は変更時なら `{"bootId":"fresh-boot-20261112-01","mode":"english"}`、日本語復元なら `{"bootId":"fresh-boot-20261112-02","mode":"restore"}`。英語以外は `"language":"ko"` のように選択したコードも入れる。`bootId` は完全OS起動ごとに別の値を指定する。使用済みIDは記録され、同じIDでの再実行は止まる。起動の新しさやSAVE内の残留物は自動判定しないので、START未使用と作業ファイルの有無を実行前に確認する。言語選択のキャンセルや指定不一致は、待受開始・起動ID消費前に止まる。
+上の4行は別々の実行例。同じ完全OS起動では**どれか1回だけ**使い、起動ごとに `--boot-id` を新しい値（英数字・`_`・`-` の16〜64文字）にする。使用済みIDは記録され、同じIDでの再実行は止まる。JSONファイルは不要。起動の新しさやSAVE内の残留物は自動判定しないので、START未使用と作業ファイルの有無を実行前に確認する。言語選択のキャンセルや不正な指定は、待受開始・起動ID消費前に止まる。
 
 ## 言語コード
 
@@ -74,7 +74,7 @@ PCのLAN側IPv4アドレスは自動で選ぶ。候補が複数ある場合は�
 
 ```sh
 node run.cjs --check-only  # 本体に接続せずにチェック（ダイアログ・START送信なし）
-node --test admission.test.cjs host-network.test.cjs language-dialog.test.cjs recovery/recovery.test.cjs $(find engine -name '*.test.cjs' | sort)
+node --test boot-journal.test.cjs host-network.test.cjs language-dialog.test.cjs recovery/recovery.test.cjs $(find engine -name '*.test.cjs' | sort)
 ```
 
 元コード：[`pepsipu/ns2jb`（95f5525）](https://github.com/pepsipu/ns2jb/commit/95f5525089273c5fce0b95047f3600f8442e96ae) / [THIRD-PARTY.md](THIRD-PARTY.md)

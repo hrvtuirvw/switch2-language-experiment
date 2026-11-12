@@ -19,8 +19,8 @@ const save = (file, value) => fs.writeFile(file, JSON.stringify(value, null, 2) 
 const DUMP_MARKER = '.ns2jb-firmware-dump.json';
 const check = (ok, message) => {if (!ok) throw Error(message);};
 
-// Operator attestations are NOT independent console telemetry. See README.
-const {inspectAdmission, consumeBoot} = require('./admission.cjs');
+// Operator-supplied boot IDs are NOT independent console telemetry. See README.
+const {createBootRecord, consumeBoot} = require('./boot-journal.cjs');
 
 async function prepareDumpDirectory(root = path.join(__dirname, 'dumps')) {
   const parent = path.dirname(root);
@@ -89,7 +89,7 @@ function connectCommand(host, token) {
 }
 
 async function sourceDigest() {
-  const names = ['run.cjs', 'admission.cjs', 'enable-english.cjs',
+  const names = ['run.cjs', 'boot-journal.cjs', 'enable-english.cjs',
     'set-language.cjs', 'restore-japanese.cjs', 'language-dialog.cjs', 'bootstrap.bas'];
   async function walk(folder) {
     for (const entry of await fs.readdir(path.join(__dirname, folder), {withFileTypes: true})) {
@@ -186,25 +186,25 @@ function waitForRpcStop(connection, signals = process, engineFinished = null) {
 async function main(args = process.argv.slice(2), {pickLanguage = chooseLanguage} = {}) {
   if (args.length === 1 && args[0] === '--help') {
     console.log('Usage: node run.cjs --check-only\n' +
-      '       node set-language.cjs [--language CODE] --admission admission.json [computer-IP]\n' +
-      '       node enable-english.cjs --admission admission.json [computer-IP]\n' +
-      '       node restore-japanese.cjs --admission admission.json [computer-IP]\n' +
+      '       node set-language.cjs [--language CODE] --boot-id ID [computer-IP]\n' +
+      '       node enable-english.cjs --boot-id ID [computer-IP]\n' +
+      '       node restore-japanese.cjs --boot-id ID [computer-IP]\n' +
       'Switch 2 only. Without --language the forward command opens a Zenity dialog; cancellation does not consume a boot. A unique operator-supplied boot ID is required before connection. See README.md.');
     return;
   }
-  let mode = null, admissionPath = null, languageCode = null, checkOnly = false;
+  let mode = null, bootId = null, languageCode = null, checkOnly = false;
   const positional = [];
   for (let i=0;i<args.length;i++) {
     if (args[i]==='--mode' && mode===null) mode=args[++i];
     else if (args[i]==='--language' && languageCode===null) languageCode=args[++i];
-    else if (args[i]==='--admission' && admissionPath===null) admissionPath=args[++i];
+    else if (args[i]==='--boot-id' && bootId===null) bootId=args[++i];
     else if (args[i]==='--check-only' && !checkOnly) checkOnly=true;
     else positional.push(args[i]);
   }
-  if (checkOnly && (positional.length || mode || admissionPath || languageCode))
+  if (checkOnly && (positional.length || mode || bootId || languageCode))
     throw Error('--check-only takes no other arguments');
-  if (!checkOnly && (!['english','restore'].includes(mode) || !admissionPath ||
-    positional.some(a => a.startsWith('--')))) throw Error('Provide --mode and --admission; see --help');
+  if (!checkOnly && (!['english','restore'].includes(mode) || !bootId ||
+    positional.some(a => a.startsWith('--')))) throw Error('Provide --mode and --boot-id; see --help');
   if (mode==='restore' && languageCode !== null) throw Error('Restore does not accept a target language');
   if (process.env.NS2_METADATA_PROBE_4K !== undefined)
     throw Error('The proven 4 KiB metadata factor cannot be overridden.');
@@ -217,20 +217,20 @@ async function main(args = process.argv.slice(2), {pickLanguage = chooseLanguage
     console.log('CHECK_ONLY_OK: source digest '+reviewedSource+'; no token/listener/console run. Live cleanup and compatibility NOT verified.');
     return {sourceSha256: reviewedSource, checkedOnly: true};
   }
-  // Select before reading/consuming an admission, creating a token, or listening.
+  // Select before consuming a boot ID, creating a token, or listening.
   const target = mode === 'restore' ? byCode('ja') :
     languageCode !== null ? byCode(languageCode) : await pickLanguage();
   if (mode === 'english') check(target && typeof target.code === 'string' && target.code !== 'ja',
     'Choose a non-Japanese supported language or use restore for Japanese');
   const selected = byCode(target.code); // Never trust a dialog provider as a firmware mapping.
-  const admission = await inspectAdmission(admissionPath, mode, selected.code);
+  const boot = createBootRecord(bootId, mode, selected.code);
   const host = await chooseHost(positional);
   // The supplied ID is a journal key, not proof of boot preparation or START usage.
-  const currentBoot = {bootId: admission.bootId, savedNs2Prepared: null,
+  const currentBoot = {bootId: boot.bootId, savedNs2Prepared: null,
     receiptStartSent: null, operatorAttested: false, independentlyVerified: false};
   const postcleanup = {operatorAttested: false, independentlyVerified: false};
   // Atomic boot journal comes before pairing/listening; even an uncertain attempt consumes this ID.
-  await consumeBoot(path.join(__dirname,'runs'), admission, reviewedSource);
+  await consumeBoot(path.join(__dirname,'runs'), boot, reviewedSource);
   const token = pairingCode();
   const command = connectCommand(host, token);
   const workspace = path.join(__dirname, 'runs');
