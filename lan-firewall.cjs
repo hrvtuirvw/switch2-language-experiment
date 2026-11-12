@@ -1,8 +1,9 @@
 'use strict';
-// Read-only verification of a temporary exact-peer rule owned by lan-listener.py.
-// No boot journal, listener or START is admitted on this Linux host without it.
+// Direct Node commands invoke lan-listener.py as a foreground child supervisor;
+// the supervised Node process verifies its exact-peer rule before admission.
 const fs=require('node:fs/promises'),path=require('node:path'),net=require('node:net');
-const {promisify}=require('node:util'),{execFile}=require('node:child_process');
+const {promisify}=require('node:util'),{execFile,spawn}=require('node:child_process');
+const readline=require('node:readline/promises');
 const run=promisify(execFile);
 const check=(ok,why)=>{if(!ok)throw Error('Host firewall: '+why)};
 const privateIp=ip=>net.isIPv4(ip) && (ip.startsWith('10.') ||
@@ -38,7 +39,7 @@ async function verify({host,peer,env=process.env,reader=fs,command=run}={}){
  if(process.platform!=='linux')return; // Non-Linux firewall remains the operator's responsibility.
  const file=env.NS2_FIREWALL_LEASE;
  check(typeof file==='string'&&/^([a-f0-9]{32})\.json$/.test(path.basename(file||''))&&
-  path.dirname(file)===leaseDir,'launch via python3 lan-listener.py with the exact peer; no boot was consumed');
+  path.dirname(file)===leaseDir,'temporary exact-peer lease missing; no boot was consumed');
  const parent=await reader.lstat(leaseDir),stat=await reader.lstat(file);
  check(parent.isDirectory()&&!parent.isSymbolicLink()&&stat.isFile()&&!stat.isSymbolicLink(),
   'linked or missing lease receipt');
@@ -46,4 +47,36 @@ async function verify({host,peer,env=process.env,reader=fs,command=run}={}){
  const {stdout}=await command('sudo',['-n','nft','-j','-a','list','chain','ip','filter','INPUT'],{timeout:12000});
  return validate(lease,JSON.parse(stdout),host,peer);
 }
-module.exports={verify,validate,fields};
+async function choosePeer(peer,{input=process.stdin,output=process.stdout}={}){
+ if(!peer){
+  check(input.isTTY,'provide --peer-ip SWITCH_IP (the Switch 2 LAN address) before boot admission');
+  const prompt=readline.createInterface({input,output});
+  try{peer=(await prompt.question('Switch 2 LAN IPv4 address: ')).trim();}
+  finally{prompt.close();}
+ }
+ check(privateIp(peer)&&!['0.0.0.0','255.255.255.255'].includes(peer),
+  'provide a private Switch 2 LAN IPv4 address with --peer-ip');
+ return peer;
+}
+async function supervise({host,peer,command,launch=spawn,signals=process}={}){
+ check(process.platform==='linux'&&privateIp(host)&&privateIp(peer)&&peer!==host,
+  'temporary firewall supervision requires distinct private Linux LAN addresses');
+ check(Array.isArray(command)&&command.length>0,'missing supervised Node command');
+ const args=[path.join(__dirname,'lan-listener.py'),'--peer-ip',peer,'--host-ip',host,
+  '--','node',...command];
+ const child=launch('python3',args,{cwd:__dirname,stdio:'inherit',env:{...process.env,
+  NS2_FIREWALL_LEASE:'',NS2_SWITCH_PEER:''}});
+ let interrupted=false;
+ const interrupt=()=>{interrupted=true;child.kill('SIGINT');};
+ const terminate=()=>{interrupted=true;child.kill('SIGTERM');};
+ signals.on('SIGINT',interrupt);signals.on('SIGTERM',terminate);
+ try{
+  const outcome=await new Promise((resolve,reject)=>{
+   child.once('error',reject);
+   child.once('close',(code,signal)=>resolve({code,signal}));
+  });
+  check(!interrupted&&outcome.code===0&&!outcome.signal,
+   'supervised run stopped; inspect firewall restoration and boot/run receipts; never replay an admitted START');
+ }finally{signals.removeListener('SIGINT',interrupt);signals.removeListener('SIGTERM',terminate);}
+}
+module.exports={verify,validate,fields,choosePeer,supervise};

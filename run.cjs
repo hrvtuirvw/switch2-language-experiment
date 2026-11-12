@@ -10,7 +10,7 @@ const readline = require('node:readline');
 const {pairingCode, listen} = require('./engine/lib/connection.cjs');
 const {byCode} = require('./engine/switch2/ro/language-codes.cjs');
 const {chooseLanguage} = require('./language-dialog.cjs');
-const {verify: verifyFirewall} = require('./lan-firewall.cjs');
+const {verify: verifyFirewall,choosePeer,supervise} = require('./lan-firewall.cjs');
 const {NativeClient} = require('./engine/lib/native.cjs');
 const {qualify} = require('./engine/lib/qualify.cjs');
 const {serve} = require('./engine/lib/bridge.cjs');
@@ -187,22 +187,23 @@ function waitForRpcStop(connection, signals = process, engineFinished = null) {
 async function main(args = process.argv.slice(2), {pickLanguage = chooseLanguage} = {}) {
   if (args.length === 1 && args[0] === '--help') {
     console.log('Usage: node run.cjs --check-only\n' +
-      '       node set-language.cjs [--language CODE] --boot-id ID [computer-IP]\n' +
-      '       node enable-english.cjs --boot-id ID [computer-IP]\n' +
-      '       node restore-japanese.cjs --boot-id ID [computer-IP]\n' +
+      '       node set-language.cjs [--language CODE] --boot-id ID [--peer-ip SWITCH_IP] [computer-IP]\n' +
+      '       node enable-english.cjs --boot-id ID [--peer-ip SWITCH_IP] [computer-IP]\n' +
+      '       node restore-japanese.cjs --boot-id ID [--peer-ip SWITCH_IP] [computer-IP]\n' +
       'Switch 2 only. Without --language the forward command opens a Zenity dialog; cancellation does not consume a boot. A unique operator-supplied boot ID is required before connection. See README.md.');
     return;
   }
-  let mode = null, bootId = null, languageCode = null, checkOnly = false;
+  let mode = null, bootId = null, languageCode = null, peerIp = null, checkOnly = false;
   const positional = [];
   for (let i=0;i<args.length;i++) {
     if (args[i]==='--mode' && mode===null) mode=args[++i];
     else if (args[i]==='--language' && languageCode===null) languageCode=args[++i];
     else if (args[i]==='--boot-id' && bootId===null) bootId=args[++i];
+    else if (args[i]==='--peer-ip' && peerIp===null) peerIp=args[++i];
     else if (args[i]==='--check-only' && !checkOnly) checkOnly=true;
     else positional.push(args[i]);
   }
-  if (checkOnly && (positional.length || mode || bootId || languageCode))
+  if (checkOnly && (positional.length || mode || bootId || languageCode || peerIp))
     throw Error('--check-only takes no other arguments');
   if (!checkOnly && (!['english','restore'].includes(mode) || !bootId ||
     positional.some(a => a.startsWith('--')))) throw Error('Provide --mode and --boot-id; see --help');
@@ -226,8 +227,14 @@ async function main(args = process.argv.slice(2), {pickLanguage = chooseLanguage
   const selected = byCode(target.code); // Never trust a dialog provider as a firmware mapping.
   const boot = createBootRecord(bootId, mode, selected.code);
   const host = await chooseHost(positional);
-  // This host's nft INPUT policy drops unsolicited console connections. Refuse
-  // before consuming a boot unless the temporary exact-peer rule is verified.
+  if (process.platform==='linux' && !process.env.NS2_FIREWALL_LEASE) {
+    const peer=await choosePeer(peerIp);
+    await supervise({host,peer,command:[mode==='restore'?'restore-japanese.cjs':'set-language.cjs',
+      ...(mode==='english'?['--language',selected.code]:[]),'--boot-id',boot.bootId,host]});
+    return {supervised:true}; // Only the verified child may consume the boot or print START.
+  }
+  if (peerIp && peerIp!==process.env.NS2_SWITCH_PEER)
+    throw Error('Switch peer differs from temporary firewall lease');
   await verifyFirewall({host,peer:process.env.NS2_SWITCH_PEER});
   // The supplied ID is a journal key, not proof of boot preparation or START usage.
   const currentBoot = {bootId: boot.bootId, savedNs2Prepared: null,

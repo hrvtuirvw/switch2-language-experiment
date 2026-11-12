@@ -1,6 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {validate,verify}=require('./lan-firewall.cjs');
+const {validate,verify,choosePeer,supervise}=require('./lan-firewall.cjs');
+const {EventEmitter}=require('node:events');
 const peer='192.168.56.21',host='192.168.56.24';
 const lease={state:'ACTIVE',peer,host,iface:'enp5s0',port:39380,
  comment:'ns2-exact-0123456789abcdef',handle:34,baselineHandles:[20,21,22,23,24,25]};
@@ -29,5 +30,25 @@ test('wrong peer/destination/port/accept and unrelated INPUT delta fail closed',
 });
 test('missing supervisor lease refuses before any firewall command',async()=>{
  await assert.rejects(verify({host,peer,env:{},command:async()=>{throw Error('must not call nft')}}),
-  /launch via python3 lan-listener.py/);
+  /temporary exact-peer lease missing/);
+});
+test('peer selection validates explicit address and does not silently guess',async()=>{
+ assert.equal(await choosePeer(peer),peer);
+ await assert.rejects(choosePeer(null,{input:{isTTY:false}}),/provide --peer-ip/);
+ for(const invalid of ['8.8.8.8','127.0.0.1','0.0.0.0','not-an-ip'])
+  await assert.rejects(choosePeer(invalid),/private Switch 2 LAN IPv4/);
+});
+test('direct runner launches the exact supervisor and forwards interruption',async()=>{
+ if(process.platform!=='linux')return;
+ const signals=new EventEmitter(),child=new EventEmitter();let sent=null,captured=null;
+ child.kill=signal=>{sent=signal;return true};
+ const launch=(bin,args,opts)=>{captured={bin,args,opts};
+  queueMicrotask(()=>{signals.emit('SIGINT');child.emit('close',1,null)});return child};
+ await assert.rejects(supervise({host,peer,command:['set-language.cjs','--language','ko',
+  '--boot-id','fresh-boot-123456',host],launch,signals}),/supervised run stopped/);
+ assert.equal(captured.bin,'python3');assert.equal(captured.args[1],'--peer-ip');
+ assert.deepEqual(captured.args.slice(-6),['set-language.cjs','--language','ko',
+  '--boot-id','fresh-boot-123456',host]);
+ assert.equal(captured.opts.env.NS2_FIREWALL_LEASE,'');assert.equal(sent,'SIGINT');
+ assert.equal(signals.listenerCount('SIGINT'),0);
 });

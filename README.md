@@ -6,18 +6,18 @@ Switch 2 の `set` / `set:sys` を使って、本体の言語設定を書き換�
 
 ## 実行
 
-Node.js 22以降が必要。言語をダイアログから選ぶ場合は Zenity も必要。LinuxでINPUTを遮断する環境ではPython 3・`sudo -n nft`を使い、本体のLANアドレスに限定した一時許可を付けて起動する。
+Node.js 22以降が必要。言語をダイアログから選ぶ場合は Zenity も必要。LinuxでINPUTを遮断する環境ではPython 3・`sudo -n nft`が必要。通常のNodeコマンドが、本体のLANアドレスに限定した一時許可を自動で付け、終了時に元へ戻す。
 
 ```sh
-python3 lan-listener.py --peer-ip SWITCH_IP --host-ip PC_IP -- node set-language.cjs --boot-id boot-20261112-02 PC_IP                  # 言語を選ぶ
-python3 lan-listener.py --peer-ip SWITCH_IP --host-ip PC_IP -- node set-language.cjs --language ko --boot-id boot-20261112-02 PC_IP    # 韓国語に変更
-python3 lan-listener.py --peer-ip SWITCH_IP --host-ip PC_IP -- node enable-english.cjs --boot-id boot-20261112-02 PC_IP                # 英語に変更
-python3 lan-listener.py --peer-ip SWITCH_IP --host-ip PC_IP -- node restore-japanese.cjs --boot-id boot-20261112-02 PC_IP              # 日本語に戻す
+node set-language.cjs --boot-id NEW_BOOT_ID_123456                                  # 言語を選ぶ
+node set-language.cjs --language ko --boot-id NEW_BOOT_ID_123456 --peer-ip SWITCH_IP  # 韓国語に変更
+node enable-english.cjs --boot-id NEW_BOOT_ID_123456 --peer-ip SWITCH_IP              # 英語に変更
+node restore-japanese.cjs --boot-id NEW_BOOT_ID_123456 --peer-ip SWITCH_IP            # 日本語に戻す
 ```
 
-`SWITCH_IP` は本体、`PC_IP` は本体と同じLANにあるPC側のIPv4に置き換える。コマンドは本体にSTARTを送らない。一時許可はこのpeer→PCのTCP 39380だけで、待受の終了時に元へ戻す。待受前の許可・権限・LAN経路検証に失敗した場合は、起動IDを消費せずに止まる。実際のTCP接続成功までは保証しない。`BOOT FAILED 58` はTCP接続失敗なので、その起動でSTARTを再送しない。`runs/` の原本を保管し、別の完全OS起動で原因を直してから新しいIDを使う。Linuxで一時許可なしの直接実行は、START前に拒否する。
+`SWITCH_IP` は本体のLAN側IPv4に置き換える。省略した場合はPCアドレスの選択後に本体IPを尋ねる（非対話では `--peer-ip` 必須）。PCのLAN IPv4が複数ある場合は末尾に `PC_IP` を付けるか、表示される一覧から選ぶ。コマンドは本体にSTARTを送らない。一時許可はこのpeer→PCのTCP 39380だけで、待受の終了・Ctrl-C時に元へ戻す。待受前の許可・権限・LAN経路検証に失敗した場合は、起動IDを消費せずに止まる。実際のTCP接続成功までは保証しない。`BOOT FAILED 58` はTCP接続失敗なので、その起動でSTARTを再送しない。`runs/` の原本を保管し、別の完全OS起動で原因を直してから新しいIDを使う。
 
-上の4行は別々の実行例。同じ完全OS起動では**どれか1回だけ**使い、起動ごとに `--boot-id` を新しい値（英数字・`_`・`-` の16〜64文字）にする。使用済みIDは記録され、同じIDでの再実行は止まる。JSONファイルは不要。起動の新しさやSAVE内の残留物は自動判定しないので、START未使用と作業ファイルの有無を実行前に確認する。言語選択のキャンセルや不正な指定は、待受開始・起動ID消費前に止まる。
+上の4行は別々の実行例。`NEW_BOOT_ID_123456` を実際の新しい起動IDへ置き換える。同じ完全OS起動では**どれか1回だけ**使い、起動ごとに `--boot-id` を新しい値（英数字・`_`・`-` の16〜64文字）にする。使用済みIDは記録され、同じIDでの再実行は止まる。JSONファイルは不要。起動の新しさやSAVE内の残留物は自動判定しないので、START未使用と作業ファイルの有無を実行前に確認する。言語選択のキャンセルや不正な指定は、待受開始・起動ID消費前に止まる。
 
 ## 言語コード
 
@@ -69,10 +69,10 @@ python3 lan-listener.py --peer-ip SWITCH_IP --host-ip PC_IP -- node restore-japa
 1. **STARTを再送しない。** PC側の `runs/` を丸ごと手元に保管する。`connect.txt` / `connection.json` には接続情報があるので、公開Issueに添付しない。
 2. まず `node recovery/recover-owned-save.cjs --check-only` を実行する。これは本体に接続せず、未回収の実行が**ちょうど1件**で、そのraw・作成元ソース・言語変更前の失敗記録から本コードの51個の作業ファイルを一意に特定できる場合だけ `pending:true` を表示する。対象外や記録の不一致では止まる。
 3. `pending:true` の場合、失敗した起動とは**別の完全OS起動**でSmileBASIC Directを開き、保存済みNS2をLOAD/RUN/REMOVEして想定のOOM表示まで準備する。STARTがまだ未使用で、PCと本体が同じLANにあることを確認する。
-4. PCのターミナルで次を実行する。`SWITCH_IP` は本体のLAN側IPv4、`--boot-id` は**回収専用の新しい起動ID**。PCのLANアドレスが複数ある場合は末尾に `--host-ip PC_IP` を付ける。
+4. PCのターミナルで次を実行する。`SWITCH_IP` は本体のLAN側IPv4、`--boot-id` は**回収専用の新しい起動ID**。PCのLANアドレスが複数ある場合は `--host-ip PC_IP` を付けるか一覧から選ぶ。
 
    ```sh
-   python3 lan-listener.py --peer-ip SWITCH_IP --host-ip PC_IP -- node recovery/recover-owned-save.cjs --run --boot-id recovery-boot-20261112-02 --peer-ip SWITCH_IP --host-ip PC_IP
+   node recovery/recover-owned-save.cjs --run --boot-id NEW_RECOVERY_BOOT_ID --peer-ip SWITCH_IP
    ```
 
 5. 表示された新しい `V=START(...)` 1行をSmileBASICに入力して内容を確認し、Enterを**1回だけ**押す。このコマンドは本体へのキー入力を代行しない。`OWNED_SAVE_RECOVERY_VERIFIED` と51件の削除・commit・新しいSAVE参照での不在・セッション解放が出たときだけ回収完了。失敗・中断・応答なしなら `runs/` と `recovery-runs/` を保存し、同じ起動でSTARTや回収コマンドを再実行しない。次の言語変更には、さらに**別の完全OS起動**と新しいIDが必要。

@@ -18,13 +18,13 @@ test('only a local interface address is encoded and no fixed host is required',a
  assert.equal(await chooseHost([host]),host);
  assert.match(connectCommand(host,[1,2,3,4]),new RegExp(host.split('.').join(',')));
 });
-test('unleased direct invocation refuses before boot consumption or listener',()=>{
+test('direct invocation without peer refuses before boot consumption or listener',()=>{
  if(process.platform!=='linux'||!addresses().length)return;
  const boot='preflight-'+crypto.randomBytes(8).toString('hex');
  const receipt=path.join(__dirname,'runs','boot-'+boot+'.json');
  const result=spawnSync(process.execPath,['set-language.cjs','--language','ko','--boot-id',boot,addresses()[0]],
   {cwd:__dirname,encoding:'utf8',timeout:10000,env:{...process.env,
    NS2_FIREWALL_LEASE:'',NS2_SWITCH_PEER:''}});
- assert.equal(result.status,1);assert.match(result.stderr,/launch via python3 lan-listener\.py/);
+ assert.equal(result.status,1);assert.match(result.stderr,/provide --peer-ip SWITCH_IP/);
  assert.equal(fs.existsSync(receipt),false);
 });

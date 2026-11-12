@@ -105,6 +105,10 @@ def main(argv=None):
     parser.add_argument('command', nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
     check(sys.platform.startswith('linux'), 'this supervisor needs Linux nftables')
+    # Cover the entire lease window, including insertion/verification. A signal
+    # between nft insertion and child launch must still reach the finally block.
+    signal.signal(signal.SIGINT, on_signal)
+    signal.signal(signal.SIGTERM, on_signal)
     iface = check_peer(args.peer_ip, args.host_ip)
     command = None if args.lease_smoke else check_command(args.command, args.peer_ip, args.host_ip)
     check(not call('ss', '-H', '-ltn', 'sport = :39380').strip(), 'listener already present')

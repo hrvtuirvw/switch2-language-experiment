@@ -95,7 +95,12 @@ exercised with a real forward START: TCP connected and application map, mount
 inspection and qualification completed. FS acquisition then failed before
 the language setter. The failure left a source-owned 51-node SAVE tree pending
 separate-boot cleanup; the host firewall returned to its original INPUT rules.
-This proves the supervised connection path, **not** a Korean language change
-or live acceptance of the new generic recovery command.
+That trial used an explicit Python supervisor. The later direct Node entry
+starts that same temporary supervisor automatically. On the Linux host, its
+duplicate-boot pre-admission failure and a separate interrupted waiting
+listener both restored INPUT handles 20–25 and closed the port without
+sending START. It has not yet completed a console run. The live trial proves the
+supervised connection path, **not** a Korean language change or live
+acceptance of the new generic recovery command.
 The integrated English/restore wrapper is distributed here as experimental
 source; the observations above identify the earlier console stages precisely.

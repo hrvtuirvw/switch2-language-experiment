@@ -11,7 +11,7 @@ const {createBootRecord}=require('../boot-journal.cjs');
 const {plan}=require('./future-scratch-plan.cjs');
 const pipeline=require('./cleanup-pipeline.cjs');
 const {PINNED}=require('./live-clean.cjs');
-const {verify:verifyFirewall}=require('../lan-firewall.cjs');
+const {verify:verifyFirewall,supervise}=require('../lan-firewall.cjs');
 const {verified:verifiedRecovery}=require('./verified-cleanup.cjs');
 const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
 const check=(yes,why)=>{if(!yes)throw Error('Recovery: '+why)};
@@ -97,6 +97,11 @@ async function main(args=process.argv.slice(2),deps={}){
  check(process.stdin.isTTY,'run interactively after a distinct full OS boot and saved NS2 prep');
  check(opts.bootId!==original.priorBootId,'cleanup must use a different complete OS boot ID');
  const host=await (deps.chooseHost||chooseHost)(opts.host?[opts.host]:[]);
+ if(process.platform==='linux'&&!process.env.NS2_FIREWALL_LEASE&&!deps.verifyFirewall){
+  await supervise({host,peer:opts.peer,command:['recovery/recover-owned-save.cjs',
+   '--run','--boot-id',opts.bootId,'--peer-ip',opts.peer,'--host-ip',host]});
+  return {supervised:true};
+ }
  await (deps.verifyFirewall||verifyFirewall)({host,peer:opts.peer});
  // Recheck source and raw immediately before one-use admission.
  check((await inspectRuns(deps.runsRoot))[0]?.rawSha256===original.rawSha256&&

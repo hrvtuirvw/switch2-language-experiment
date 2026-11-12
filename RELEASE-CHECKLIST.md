@@ -20,6 +20,13 @@
       a supervised exact-peer temporary TCP 39380 allowance, verify its live
       nft rule from the Node launcher, and restore the original INPUT handles
       after a no-START lease smoke and a failed pre-admission child.
+- [x] The ordinary forward and exact-owned recovery Node commands invoke
+      the supervisor themselves: optional interactive peer prompt or explicit
+      `--peer-ip`, exact route/INPUT gate, and exit/Ctrl-C cleanup. This
+      integration was exercised by direct Node commands on the Linux host
+      without sending START: duplicate boot receipt and a Ctrl-C after the
+      listener opened both restored original INPUT handles and closed TCP.
+      No console START or live language change was performed by this entry.
 - [x] On a later console boot, verify TCP handshake and app qualification
       under the supervised lease and restoration of the INPUT baseline;
       the run then failed at FS acquisition, before any language setter.
